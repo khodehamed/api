@@ -600,6 +600,7 @@ class XUIClient:
         self.base_url = config.url.rstrip("/")
         self.session = requests.Session()
         self.session.headers.update({"Host": config.domain, **HEADERS})
+        self.last_error = ""
         if config.token:
             self.session.headers.update({"Authorization": f"Bearer {config.token}"})
 
@@ -613,6 +614,7 @@ class XUIClient:
         headers = {}
         if csrf:
             headers["x-csrf-token"] = csrf
+            self.session.headers.update({"x-csrf-token": csrf})
         try:
             resp = self.session.post(
                 f"{self.base_url}/login",
@@ -622,17 +624,25 @@ class XUIClient:
                 verify=False,
             )
         except requests.RequestException:
+            self.last_error = "خطا در اتصال به صفحه لاگین پنل"
             return False
 
         if resp.status_code != 200:
+            self.last_error = f"لاگین پنل ناموفق بود: HTTP {resp.status_code}"
             return False
         try:
             data = resp.json()
             if isinstance(data, dict) and "success" in data:
-                return bool(data.get("success"))
+                if data.get("success"):
+                    return True
+                self.last_error = str(data.get("msg") or data.get("message") or "نام کاربری یا رمز پنل اشتباه است")
+                return False
         except ValueError:
             pass
-        return "username" not in resp.text.lower()
+        ok = "username" not in resp.text.lower()
+        if not ok:
+            self.last_error = "نام کاربری یا رمز پنل اشتباه است"
+        return ok
 
     def _csrf_token(self) -> str | None:
         try:
@@ -676,11 +686,22 @@ class XUIClient:
                 **kwargs,
             )
             if resp.status_code == 404:
+                self.last_error = f"مسیر API پیدا نشد: {path}"
                 return None
-            resp.raise_for_status()
             data = resp.json()
-            return data if isinstance(data, dict) else None
-        except (requests.RequestException, ValueError):
+            if isinstance(data, dict):
+                if resp.status_code >= 400:
+                    self.last_error = str(data.get("msg") or data.get("message") or f"HTTP {resp.status_code}")
+                elif data.get("success") is False:
+                    self.last_error = str(data.get("msg") or data.get("message") or "درخواست API توسط پنل رد شد")
+                return data
+            self.last_error = f"پاسخ API معتبر نیست: {path}"
+            return None
+        except requests.RequestException as exc:
+            self.last_error = f"خطای ارتباط با API پنل: {exc}"
+            return None
+        except ValueError:
+            self.last_error = f"پاسخ JSON معتبر نیست: {path}"
             return None
 
     def list_new_clients(self) -> list[dict[str, Any]] | None:
@@ -717,6 +738,23 @@ class XUIClient:
                 return client
         return None
 
+    def get_new_client_detail(self, email: str) -> dict[str, Any] | None:
+        if not email:
+            return None
+        data = self.api("GET", f"/clients/get/{quote(email, safe='')}")
+        if not api_success(data):
+            return None
+        obj = api_obj(data)
+        if not isinstance(obj, dict):
+            return None
+        client = obj.get("client")
+        if isinstance(client, dict):
+            inbound_ids = obj.get("inboundIds")
+            if isinstance(inbound_ids, list):
+                client["inboundIds"] = inbound_ids
+            return client
+        return None
+
     def build_new_client_payload(self, record: dict[str, Any]) -> dict[str, Any]:
         return {
             "id": record.get("uuid") or record.get("id") or "",
@@ -741,7 +779,11 @@ class XUIClient:
         email = str(record.get("email") or "")
         if not email:
             return False
-        data = self.api("POST", f"/clients/update/{quote(email, safe='')}", json=payload)
+        inbound_ids = record.get("inboundIds")
+        query = ""
+        if isinstance(inbound_ids, list) and inbound_ids:
+            query = "?inboundIds=" + ",".join(str(int_value(item)) for item in inbound_ids if int_value(item))
+        data = self.api("POST", f"/clients/update/{quote(email, safe='')}{query}", json=payload)
         return api_success(data)
 
 
@@ -847,6 +889,10 @@ def execute_update_new(config: PanelConfig, proto: str, old_key: str, old_link: 
     record = api.find_new_client(proto, old_key)
     if not record:
         return None
+    detail = api.get_new_client_detail(str(record.get("email") or ""))
+    if detail:
+        detail["traffic"] = record.get("traffic")
+        record = detail
 
     payload = api.build_new_client_payload(record)
     if proto == "vless":
@@ -923,6 +969,10 @@ def execute_toggle_new(config: PanelConfig, proto: str, client_key: str) -> tupl
     record = api.find_new_client(proto, client_key)
     if not record:
         return None
+    detail = api.get_new_client_detail(str(record.get("email") or ""))
+    if detail:
+        detail["traffic"] = record.get("traffic")
+        record = detail
     payload = api.build_new_client_payload(record)
     new_status = not bool(record.get("enable", True))
     payload["enable"] = new_status
