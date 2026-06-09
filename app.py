@@ -24,6 +24,13 @@ app = Flask(__name__)
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
 
+# اگر می‌خواهید اطلاعات ورود را مستقیم داخل همین فایل بگذارید، این بخش را پر کنید.
+# اگر INLINE_PANEL_TOKEN پر باشد، برنامه از توکن استفاده می‌کند و یوزر/پس لازم نیست.
+INLINE_PANEL_USERNAME = "hamex"
+INLINE_PANEL_PASSWORD = ""  # مثال: "your-panel-password"
+INLINE_PANEL_TOKEN = ""  # مثال: "your-3x-ui-api-token"
+INLINE_CHANGE_SECTION_PASSWORD = "7gozar"
+
 
 @dataclass(frozen=True)
 class PanelConfig:
@@ -69,9 +76,9 @@ def load_panels() -> dict[str, PanelConfig]:
     else:
         entries = DEFAULT_PANEL_ENDPOINTS
 
-    default_username = os.getenv("XUI_PANEL_USERNAME", "hamex").strip() or None
-    default_password = os.getenv("XUI_PANEL_PASSWORD", "").strip() or None
-    default_token = os.getenv("XUI_PANEL_TOKEN", "").strip() or None
+    default_username = os.getenv("XUI_PANEL_USERNAME", INLINE_PANEL_USERNAME).strip() or None
+    default_password = os.getenv("XUI_PANEL_PASSWORD", INLINE_PANEL_PASSWORD).strip() or None
+    default_token = os.getenv("XUI_PANEL_TOKEN", INLINE_PANEL_TOKEN).strip() or None
 
     panels: dict[str, PanelConfig] = {}
     for name, item in entries.items():
@@ -102,7 +109,7 @@ def load_panels() -> dict[str, PanelConfig]:
 
 
 PANELS = load_panels()
-CHANGE_SECTION_PASSWORD = os.getenv("CHANGE_SECTION_PASSWORD", "7gozar")
+CHANGE_SECTION_PASSWORD = os.getenv("CHANGE_SECTION_PASSWORD", INLINE_CHANGE_SECTION_PASSWORD)
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>

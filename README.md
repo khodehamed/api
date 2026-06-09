@@ -16,7 +16,20 @@ python3 -m pip install -r requirements.txt
 
 ## Required configuration
 
-Do not hard-code panel passwords in the source. Set either a shared password:
+You can set credentials directly at the top of `app.py`:
+
+```python
+INLINE_PANEL_USERNAME = "hamex"
+INLINE_PANEL_PASSWORD = "your-panel-password"
+INLINE_PANEL_TOKEN = ""
+INLINE_CHANGE_SECTION_PASSWORD = "7gozar"
+```
+
+If `INLINE_PANEL_TOKEN` is filled, the app uses token authentication. If it is
+empty, the app uses `INLINE_PANEL_USERNAME` and `INLINE_PANEL_PASSWORD`.
+
+Environment variables still override the inline values. Set either a shared
+password:
 
 ```bash
 export XUI_PANEL_USERNAME='hamex'
