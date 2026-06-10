@@ -660,7 +660,13 @@ def int_value(value: Any, default: int = 0) -> int:
 
 
 def text_value(value: Any) -> str:
-    return value if isinstance(value, str) else ""
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)):
+        return str(int(value))
+    return str(value)
 
 
 class XUIClient:
@@ -1050,6 +1056,25 @@ def execute_toggle_new(config: PanelConfig, proto: str, client_key: str, link: s
     return None
 
 
+def try_toggle_new_with_error(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> tuple[tuple[bool, str] | None, str]:
+    api = XUIClient(config)
+    if not api.login():
+        return None, api.last_error
+    record = api.find_new_client(proto, client_key, link)
+    if not record:
+        return None, api.last_error
+    detail = api.get_new_client_detail(str(record.get("email") or ""))
+    if detail:
+        detail["traffic"] = record.get("traffic")
+        record = detail
+    payload = api.build_new_client_payload(record)
+    new_status = not bool(record.get("enable", True))
+    payload["enable"] = new_status
+    if api.update_new_client(record, payload):
+        return (new_status, str(record.get("email") or "")), ""
+    return None, api.last_error
+
+
 def execute_toggle_legacy(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> tuple[bool, str] | None:
     api = XUIClient(config)
     if not api.login():
@@ -1191,14 +1216,19 @@ def api_toggle():
         return jsonify({"success": False, "message": "لینک کانفیگ معتبر نیست!"})
 
     new_status = email = None
+    last_error = ""
     for config in panel_search_order(target_domain):
-        res = execute_toggle_client(config, proto, client_key, link)
+        res, error = try_toggle_new_with_error(config, proto, client_key, link)
+        if error:
+            last_error = error
+        if res is None:
+            res = execute_toggle_legacy(config, proto, client_key, link)
         if res is not None:
             new_status, email = res
             break
 
     if new_status is None:
-        return jsonify({"success": False, "message": "کلاینت در پنل‌ها جهت تغییر وضعیت پیدا نشد."})
+        return jsonify({"success": False, "message": last_error or "کلاینت در پنل‌ها جهت تغییر وضعیت پیدا نشد."})
 
     return jsonify({"success": True, "email": email, "current_status": new_status})
 
