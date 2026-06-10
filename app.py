@@ -506,26 +506,35 @@ def parse_config_link(link: str) -> tuple[str | None, str | None, str | None]:
     if link.startswith("ss://"):
         parsed = parse_ss_link(link)
         if parsed:
-            return "ss", parsed["password"], parsed["domain"]
+            return "ss", ss_panel_password_from_link_password(parsed["method"], parsed["password"]), parsed["domain"]
 
     return None, None, None
 
 
 def parse_ss_link(link: str) -> dict[str, str] | None:
-    body = link[5:].split("#", 1)[0]
+    body, _, fragment = link[5:].partition("#")
     body = body.split("?", 1)[0]
     try:
         if "@" in body:
             user_info, host_part = body.rsplit("@", 1)
             host = urlsplit(f"//{host_part}").hostname or host_part.split(":", 1)[0]
+            decoded = ""
             try:
                 decoded = _b64decode_urlsafe(user_info).decode("utf-8", errors="strict")
             except Exception:
+                pass
+            if ":" not in decoded:
                 decoded = unquote(user_info)
             if ":" not in decoded:
                 return None
             method, password = decoded.split(":", 1)
-            return {"method": method, "password": password, "domain": host.lower().strip(), "style": "userinfo"}
+            return {
+                "method": method,
+                "password": password,
+                "domain": host.lower().strip(),
+                "style": "userinfo",
+                "remark": unquote(fragment).strip(),
+            }
 
         decoded = _b64decode_urlsafe(body).decode("utf-8", errors="strict")
         if "@" not in decoded or ":" not in decoded.split("@", 1)[0]:
@@ -533,9 +542,64 @@ def parse_ss_link(link: str) -> dict[str, str] | None:
         user_info, host_part = decoded.rsplit("@", 1)
         method, password = user_info.split(":", 1)
         host = urlsplit(f"//{host_part}").hostname or host_part.split(":", 1)[0]
-        return {"method": method, "password": password, "domain": host.lower().strip(), "style": "full"}
+        return {
+            "method": method,
+            "password": password,
+            "domain": host.lower().strip(),
+            "style": "full",
+            "remark": unquote(fragment).strip(),
+        }
     except Exception:
         return None
+
+
+def ss_panel_password_from_link_password(method: str, password: str) -> str:
+    if method.startswith("2022-blake3-") and ":" in password:
+        return password.rsplit(":", 1)[1]
+    return password
+
+
+def ss_link_password_with_new_client_key(method: str, old_password: str, new_client_key: str) -> str:
+    if method.startswith("2022-blake3-") and ":" in old_password:
+        server_key = old_password.rsplit(":", 1)[0]
+        return f"{server_key}:{new_client_key}"
+    return new_client_key
+
+
+def ss_match_values(client_key: str, link: str | None = None) -> set[str]:
+    values = {client_key, unquote(client_key)}
+    if ":" in client_key:
+        values.add(client_key.rsplit(":", 1)[1])
+
+    if link:
+        parsed = parse_ss_link(link)
+        if parsed:
+            password = parsed.get("password", "")
+            method = parsed.get("method", "")
+            remark = parsed.get("remark", "")
+            values.add(password)
+            values.add(ss_panel_password_from_link_password(method, password))
+            if ":" in password:
+                values.add(password.rsplit(":", 1)[1])
+            if remark:
+                values.add(remark)
+
+    return {value for value in values if value}
+
+
+def ss_client_matches(client: dict[str, Any], client_key: str, link: str | None = None) -> bool:
+    values = ss_match_values(client_key, link)
+    lower_values = {value.lower() for value in values}
+    password = str(client.get("password") or "")
+    email = str(client.get("email") or "")
+    client_id = str(client.get("id") or client.get("uuid") or "")
+    sub_id = str(client.get("subId") or "")
+    return (
+        password in values
+        or email.lower() in lower_values
+        or client_id in values
+        or sub_id in values
+    )
 
 
 def replace_ss_password(link: str, new_password: str) -> str:
@@ -547,15 +611,16 @@ def replace_ss_password(link: str, new_password: str) -> str:
     parsed = parse_ss_link(link)
     if not parsed:
         return link
+    link_password = ss_link_password_with_new_client_key(parsed["method"], parsed["password"], new_password)
 
     if "@" in body:
         user_info, host_part = body.rsplit("@", 1)
-        new_user_info = _b64encode_urlsafe(f"{parsed['method']}:{new_password}")
+        new_user_info = _b64encode_urlsafe(f"{parsed['method']}:{link_password}")
         rebuilt = f"ss://{new_user_info}@{host_part}"
     else:
         decoded = _b64decode_urlsafe(body).decode("utf-8", errors="ignore")
         _, host_part = decoded.rsplit("@", 1)
-        new_full = f"{parsed['method']}:{new_password}@{host_part}"
+        new_full = f"{parsed['method']}:{link_password}@{host_part}"
         rebuilt = f"ss://{_b64encode_urlsafe(new_full)}"
 
     if query_sep:
@@ -727,14 +792,14 @@ class XUIClient:
                     return {str(item) for item in obj}
         return set()
 
-    def find_new_client(self, proto: str, client_key: str) -> dict[str, Any] | None:
+    def find_new_client(self, proto: str, client_key: str, link: str | None = None) -> dict[str, Any] | None:
         clients = self.list_new_clients()
         if clients is None:
             return None
         for client in clients:
             if proto == "vless" and str(client.get("uuid") or client.get("id") or "") == client_key:
                 return client
-            if proto == "ss" and str(client.get("password") or "") == client_key:
+            if proto == "ss" and ss_client_matches(client, client_key, link):
                 return client
         return None
 
@@ -822,17 +887,17 @@ def client_usage_from_new_record(client: dict[str, Any], online_emails: set[str]
     }
 
 
-def check_new_panel(config: PanelConfig, proto: str, client_key: str) -> dict[str, Any] | None:
+def check_new_panel(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> dict[str, Any] | None:
     api = XUIClient(config)
     if not api.login():
         return None
-    client = api.find_new_client(proto, client_key)
+    client = api.find_new_client(proto, client_key, link)
     if not client:
         return None
     return client_usage_from_new_record(client, api.online_emails())
 
 
-def check_legacy_panel(config: PanelConfig, proto: str, client_key: str) -> dict[str, Any] | None:
+def check_legacy_panel(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> dict[str, Any] | None:
     api = XUIClient(config)
     if not api.login():
         return None
@@ -851,7 +916,7 @@ def check_legacy_panel(config: PanelConfig, proto: str, client_key: str) -> dict
                 continue
             if proto == "vless" and client.get("id") != client_key:
                 continue
-            if proto == "ss" and str(client.get("password")) != str(client_key):
+            if proto == "ss" and not ss_client_matches(client, client_key, link):
                 continue
 
             email = client.get("email")
@@ -878,15 +943,15 @@ def check_legacy_panel(config: PanelConfig, proto: str, client_key: str) -> dict
     return None
 
 
-def check_single_panel(config: PanelConfig, proto: str, client_key: str) -> dict[str, Any] | None:
-    return check_new_panel(config, proto, client_key) or check_legacy_panel(config, proto, client_key)
+def check_single_panel(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> dict[str, Any] | None:
+    return check_new_panel(config, proto, client_key, link) or check_legacy_panel(config, proto, client_key, link)
 
 
 def execute_update_new(config: PanelConfig, proto: str, old_key: str, old_link: str) -> tuple[str, str] | None:
     api = XUIClient(config)
     if not api.login():
         return None
-    record = api.find_new_client(proto, old_key)
+    record = api.find_new_client(proto, old_key, old_link)
     if not record:
         return None
     detail = api.get_new_client_detail(str(record.get("email") or ""))
@@ -928,7 +993,7 @@ def execute_update_legacy(config: PanelConfig, proto: str, old_key: str, old_lin
                 continue
             if proto == "vless" and client.get("id") != old_key:
                 continue
-            if proto == "ss" and str(client.get("password")) != str(old_key):
+            if proto == "ss" and not ss_client_matches(client, old_key, old_link):
                 continue
 
             updated_client = client.copy()
@@ -941,7 +1006,7 @@ def execute_update_legacy(config: PanelConfig, proto: str, old_key: str, old_lin
                 ss_data = parse_ss_link(old_link) or {}
                 new_key = generate_shadowsocks_key(ss_data.get("method"))
                 updated_client["password"] = new_key
-                candidate_ids = [email, client.get("password"), old_key]
+                candidate_ids = [email, client.get("password"), old_key, *ss_match_values(old_key, old_link)]
 
             payload = {
                 "id": inbound.get("id"),
@@ -962,11 +1027,11 @@ def execute_update_uuid(config: PanelConfig, proto: str, old_key: str, old_link:
     return execute_update_new(config, proto, old_key, old_link) or execute_update_legacy(config, proto, old_key, old_link)
 
 
-def execute_toggle_new(config: PanelConfig, proto: str, client_key: str) -> tuple[bool, str] | None:
+def execute_toggle_new(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> tuple[bool, str] | None:
     api = XUIClient(config)
     if not api.login():
         return None
-    record = api.find_new_client(proto, client_key)
+    record = api.find_new_client(proto, client_key, link)
     if not record:
         return None
     detail = api.get_new_client_detail(str(record.get("email") or ""))
@@ -981,7 +1046,7 @@ def execute_toggle_new(config: PanelConfig, proto: str, client_key: str) -> tupl
     return None
 
 
-def execute_toggle_legacy(config: PanelConfig, proto: str, client_key: str) -> tuple[bool, str] | None:
+def execute_toggle_legacy(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> tuple[bool, str] | None:
     api = XUIClient(config)
     if not api.login():
         return None
@@ -1001,7 +1066,7 @@ def execute_toggle_legacy(config: PanelConfig, proto: str, client_key: str) -> t
                 continue
             if proto == "vless" and client.get("id") != client_key:
                 continue
-            if proto == "ss" and str(client.get("password")) != str(client_key):
+            if proto == "ss" and not ss_client_matches(client, client_key, link):
                 continue
 
             email = str(client.get("email") or "")
@@ -1012,7 +1077,11 @@ def execute_toggle_legacy(config: PanelConfig, proto: str, client_key: str) -> t
                 "id": inbound.get("id"),
                 "settings": json.dumps({"clients": [updated_client]}, separators=(",", ":")),
             }
-            candidate_ids = [client_key, client.get("id"), email] if proto == "vless" else [email, client.get("password"), client_key]
+            candidate_ids = (
+                [client_key, client.get("id"), email]
+                if proto == "vless"
+                else [email, client.get("password"), client_key, *ss_match_values(client_key, link)]
+            )
             for client_endpoint_id in dict.fromkeys(filter(None, candidate_ids)):
                 data = api.api(
                     "POST",
@@ -1024,8 +1093,8 @@ def execute_toggle_legacy(config: PanelConfig, proto: str, client_key: str) -> t
     return None
 
 
-def execute_toggle_client(config: PanelConfig, proto: str, client_key: str) -> tuple[bool, str] | None:
-    return execute_toggle_new(config, proto, client_key) or execute_toggle_legacy(config, proto, client_key)
+def execute_toggle_client(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> tuple[bool, str] | None:
+    return execute_toggle_new(config, proto, client_key, link) or execute_toggle_legacy(config, proto, client_key, link)
 
 
 def panel_search_order(target_domain: str | None) -> list[PanelConfig]:
@@ -1053,13 +1122,13 @@ def api_check():
         return jsonify({"success": False, "message": "هیچ پنلی برای بررسی تنظیم نشده است."})
 
     first, rest = ordered[0], ordered[1:]
-    result = check_single_panel(first, proto, client_key)
+    result = check_single_panel(first, proto, client_key, link)
     if result:
         result["success"] = True
         return jsonify(result)
 
     with ThreadPoolExecutor(max_workers=max(1, len(rest))) as executor:
-        futures = {executor.submit(check_single_panel, conf, proto, client_key): conf.domain for conf in rest}
+        futures = {executor.submit(check_single_panel, conf, proto, client_key, link): conf.domain for conf in rest}
         for future in as_completed(futures):
             result = future.result()
             if result:
@@ -1119,7 +1188,7 @@ def api_toggle():
 
     new_status = email = None
     for config in panel_search_order(target_domain):
-        res = execute_toggle_client(config, proto, client_key)
+        res = execute_toggle_client(config, proto, client_key, link)
         if res is not None:
             new_status, email = res
             break
