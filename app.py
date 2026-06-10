@@ -659,6 +659,10 @@ def int_value(value: Any, default: int = 0) -> int:
         return default
 
 
+def text_value(value: Any) -> str:
+    return value if isinstance(value, str) else ""
+
+
 class XUIClient:
     def __init__(self, config: PanelConfig):
         self.config = config
@@ -822,7 +826,7 @@ class XUIClient:
 
     def build_new_client_payload(self, record: dict[str, Any]) -> dict[str, Any]:
         return {
-            "id": record.get("uuid") or record.get("id") or "",
+            "id": text_value(record.get("uuid")) or text_value(record.get("id")),
             "security": record.get("security") or "auto",
             "password": record.get("password") or "",
             "flow": record.get("flow") or "",
