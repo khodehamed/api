@@ -1,12 +1,13 @@
 # Seven Hub 3x-ui API bridge
 
-Flask app for checking, rotating, and temporarily toggling VLESS/Shadowsocks
-clients across multiple MHSanaei/3x-ui panels.
+Flask app for checking, rotating, temporarily toggling, and migrating
+VLESS/Shadowsocks clients across multiple MHSanaei/3x-ui panels.
 
 The UI template is kept inline in `app.py`. The backend supports both:
 
 - New 3x-ui client API: `/panel/api/clients/...`
 - Legacy inbound client API: `/panel/api/inbounds/updateClient/:clientId`
+- Migration from `linksh.gozar8.ir` Shadowsocks to `linkw.gozar8.ir` VLESS on port 443
 
 ## Install
 
@@ -69,7 +70,7 @@ export PANELS_JSON='{
 sudo -E python3 app.py
 ```
 
-Set `PORT` if you do not want to bind to port 80:
+By default the app binds to port 8080. Set `PORT` to override it:
 
 ```bash
 PORT=8080 python3 app.py

@@ -42,16 +42,14 @@ class PanelConfig:
 
 
 DEFAULT_PANEL_ENDPOINTS = {
-    "linkw.gozar8.ir": {"url": "https://5.57.38.18:2096/hamex", "domain": "linkw.gozar8.ir"},
-    "link.gozar8.ir": {"url": "https://5.57.38.14:2096/hamex", "domain": "link.gozar8.ir"},
-    "linkn.gozar8.ir": {"url": "https://81.12.32.89:2096/hamex", "domain": "linkn.gozar8.ir"},
-    "linkm.gozar8.ir": {"url": "https://178.239.145.42:2096/hamex", "domain": "linkm.gozar8.ir"},
-    "linkh.gozar8.ir": {"url": "https://178.239.145.43:2096/hamex", "domain": "linkh.gozar8.ir"},
-    "rsk.gozar8.ir": {"url": "https://5.57.38.15:2096/hamex", "domain": "rsk.gozar8.ir"},
+    "linkw.gozar8.ir": {"url": "https://86.104.32.200:2096/hamex", "domain": "linkw.gozar8.ir"},
+    "link.gozar8.ir": {"url": "https://37.32.12.193:2096/hamex", "domain": "link.gozar8.ir"},
+    "linkn.gozar8.ir": {"url": "https://86.104.32.34:2096/hamex", "domain": "linkn.gozar8.ir"},
+    "linkm.gozar8.ir": {"url": "https://86.104.32.33:2096/hamex", "domain": "linkm.gozar8.ir"},
+    "linkh.gozar8.ir": {"url": "https://79.175.176.127:2096/hamex", "domain": "linkh.gozar8.ir"},
+    "rsk.gozar8.ir": {"url": "https://79.175.176.114:2096/hamex", "domain": "rsk.gozar8.ir"},
     "linksh.gozar8.ir": {"url": "http://178.239.145.39:2096/hamex", "domain": "linksh.gozar8.ir"},
-    "links.gozar8.ir": {"url": "https://178.239.145.45:2096/hamex", "domain": "links.gozar8.ir"},
-    "linkt.gozar8.ir": {"url": "https://178.239.145.41:2096/hamex", "domain": "linkt.gozar8.ir"},
-    "login.gozqr9.ir": {"url": "https://5.57.38.20:2096/hamex", "domain": "login.gozqr9.ir"},
+    "login.gozqr9.ir": {"url": "https://79.175.176.116:2096/hamex", "domain": "login.gozqr9.ir"},
 }
 
 
@@ -120,7 +118,7 @@ HTML_TEMPLATE = """
     <title>Seven Hub ..</title>
     <script src="{{ url_for('static', filename='jquery-3.6.0.min.js') }}"></script>
     <style>
-        :root { --accent: #00d4ff; --accent-alt: #00ffaa; --toggle-color: #ffb700; --danger: #ff4747; --warning: #ffaa00; --bg: #020205; --success: #00ffaa; }
+        :root { --accent: #00d4ff; --accent-alt: #00ffaa; --toggle-color: #ffb700; --migrate-color: #e040fb; --danger: #ff4747; --warning: #ffaa00; --bg: #020205; --success: #00ffaa; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: var(--bg); font-family: 'Tahoma', sans-serif; color: white; overflow-x: hidden; }
         
         canvas { position: fixed; top: 0; left: 0; z-index: 1; pointer-events: none; }
@@ -128,12 +126,12 @@ HTML_TEMPLATE = """
         .card {
             background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(25px);
             border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 35px;
-            padding: 35px; width: 100%; max-width: 460px;
+            padding: 35px; width: 100%; max-width: 500px;
             box-shadow: 0 50px 100px rgba(0, 0, 0, 0.9); text-align: center;
         }
         h2 { font-weight: 200; letter-spacing: 5px; font-size: 18px; margin-bottom: 25px; color: #fff; }
-        .tabs { display: flex; justify-content: center; gap: 5px; margin-bottom: 25px; background: rgba(255,255,255,0.03); padding: 5px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05); }
-        .tab-btn { flex: 1; padding: 10px 5px; background: transparent; color: #888; border: none; border-radius: 14px; cursor: pointer; font-weight: bold; font-size: 12px; transition: 0.3s; white-space: nowrap; }
+        .tabs { display: flex; justify-content: center; gap: 5px; margin-bottom: 25px; background: rgba(255,255,255,0.03); padding: 5px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05); overflow-x: auto; }
+        .tab-btn { flex: 1; padding: 10px 5px; background: transparent; color: #888; border: none; border-radius: 14px; cursor: pointer; font-weight: bold; font-size: 11px; transition: 0.3s; white-space: nowrap; }
         .tab-btn.active { background: rgba(255,255,255,0.08); color: #fff; }
         .tab-btn:hover:not(.active) { color: #fff; background: rgba(255,255,255,0.03); }
         .tab-content { display: none; }
@@ -145,6 +143,7 @@ HTML_TEMPLATE = """
         }
         .tab-content[data-tab="changer"] textarea { color: var(--accent-alt); }
         .tab-content[data-tab="toggle"] textarea { color: var(--toggle-color); }
+        .tab-content[data-tab="migrate"] textarea { color: var(--migrate-color); }
         .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 25px; }
         
         .btn-check { 
@@ -154,6 +153,7 @@ HTML_TEMPLATE = """
         .btn-check:hover { background: var(--accent); transform: translateY(-2px); }
         .tab-content[data-tab="changer"] .btn-check:hover { background: var(--accent-alt); }
         .tab-content[data-tab="toggle"] .btn-check:hover { background: var(--toggle-color); }
+        .tab-content[data-tab="migrate"] .btn-check:hover { background: var(--migrate-color); color: #fff; }
         .btn-clear { 
             padding: 14px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.2); 
             background: transparent; color: #bbb; cursor: pointer; transition: 0.3s;
@@ -169,6 +169,7 @@ HTML_TEMPLATE = """
         }
         .tab-content[data-tab="changer"] .modern-loader { border-top-color: var(--accent-alt); }
         .tab-content[data-tab="toggle"] .modern-loader { border-top-color: var(--toggle-color); }
+        .tab-content[data-tab="migrate"] .modern-loader { border-top-color: var(--migrate-color); }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .result-box { margin-top: 30px; display: none; text-align: right; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 20px; }
         .info-card { background: rgba(255, 255, 255, 0.02); padding: 25px; border-radius: 25px; border: 1px solid rgba(255,255,255,0.03); }
@@ -230,6 +231,7 @@ HTML_TEMPLATE = """
                 <button class="tab-btn active" onclick="switchTab('check')">بررسی وضعیت</button>
                 <button class="tab-btn" onclick="switchTab('changer')">تغییر پورت (UUID/Pass)</button>
                 <button class="tab-btn" onclick="switchTab('toggle')">قطع/وصلی موقت</button>
+                <button class="tab-btn" onclick="switchTab('migrate')">انتقال به VLESS</button>
             </div>
             <div class="tab-content active" data-tab="check">
                 <textarea id="vlessLink" rows="3" placeholder="....لینک VLESS یا Shadowsocks را جهت بررسی وضعیت وارد کنید"></textarea>
@@ -308,6 +310,36 @@ HTML_TEMPLATE = """
                 </div>
                 <div class="error-msg" id="toggleError"></div>
             </div>
+            <div class="tab-content" data-tab="migrate">
+                <div class="warning-box" style="border-color: rgba(224, 64, 251, 0.5); background: rgba(224, 64, 251, 0.04);">
+                    <strong style="color: #e040fb;">🔄 راهنمای مهم انتقال به پنل جدید VLESS:</strong>
+                    <p style="font-size: 12.5px; line-height: 1.9; font-weight: bold; color: #f5c2ff;">
+                        کاربر گرامی، این اکانت به پنل پرسرعت و جدید دیگری منتقل خواهد شد. حجم باقی‌مانده و زمان اعتبار فعلی به پنل جدید منتقل می‌شود. پس از پایان فرآیند، لینک قدیمی غیرفعال می‌شود.
+                    </p>
+                </div>
+                <textarea id="ssMigrateLink" rows="3" placeholder="....لینک شدوساکس (ss://) مربوط به پنل linksh را وارد کنید"></textarea>
+                <div class="btn-group">
+                    <button class="btn-check" id="migrateBtn" onclick="migrateToVless()">موافقت و انتقال هوشمند به پنل جدید</button>
+                    <button class="btn-clear" onclick="clearMigrateForm()">پاکسازی فرم</button>
+                </div>
+                <div class="loader-wrap" id="migrateLoader"><div class="modern-loader"></div></div>
+                <div class="result-box" id="migrateResult">
+                    <div class="info-card">
+                        <div class="success-tag" style="color: var(--migrate-color)">✓ اکانت با موفقیت به VLESS منتقل شد و لینک قدیمی غیرفعال گردید.</div>
+                        <span class="label">ایمیل کاربر متصل شده در مقصد</span>
+                        <span id="migrateEmail" class="val" style="direction:ltr; text-align:right;">-</span>
+                        <span class="label">لینک VLESS صادر شده (پورت 443)</span>
+                        <textarea id="newVlessLink" rows="3" readonly style="color: #fff; background: rgba(255,255,255,0.02); margin-bottom:10px;"></textarea>
+                        <button class="copy-btn" onclick="copyLink('newVlessLink')">کپی کردن لینک VLESS جدید</button>
+                        <div style="text-align: center;">
+                            <div class="qr-box">
+                                <img id="migrateQrImage" src="" alt="QR Code">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="error-msg" id="migrateError"></div>
+            </div>
         </div>
     </div>
     <script>
@@ -356,13 +388,16 @@ HTML_TEMPLATE = """
                 $('#brandTitle').text('CHECK').css('color', 'var(--accent)');
             } else if(tabName === 'changer') {
                 $('#brandTitle').text('CHANGER').css('color', 'var(--accent-alt)');
-            } else {
+            } else if(tabName === 'toggle') {
                 $('#brandTitle').text('SWITCH').css('color', 'var(--toggle-color)');
+            } else {
+                $('#brandTitle').text('MIGRATE').css('color', 'var(--migrate-color)');
             }
         }
         function clearCheckForm() { $('#vlessLink').val(''); $('#checkResult').hide(); $('#checkError').text(''); $('#checkLoader').hide(); }
         function clearChangerForm() { $('#oldLink').val(''); $('#changerResult').hide(); $('#changerError').text(''); $('#changerLoader').hide(); }
         function clearToggleForm() { $('#toggleLink').val(''); $('#toggleResult').hide(); $('#toggleError').text(''); $('#toggleLoader').hide(); }
+        function clearMigrateForm() { $('#ssMigrateLink').val(''); $('#migrateResult').hide(); $('#migrateError').text(''); $('#migrateLoader').hide(); }
         function checkAccount() {
             const link = $('#vlessLink').val().trim();
             if(!link) return;
@@ -460,8 +495,27 @@ HTML_TEMPLATE = """
                 $('#toggleError').text('خطا در ارتباط با سرور پایتون!');
             });
         }
-        function copyLink() {
-            const copyText = document.getElementById("newLink");
+        function migrateToVless() {
+            const link = $('#ssMigrateLink').val().trim();
+            if(!link) return;
+            $('#migrateResult').hide(); $('#migrateError').text(''); $('#migrateLoader').css('display', 'flex'); $('#migrateBtn').prop('disabled', true);
+            $.post('/api/migrate', { link: link }, function(data) {
+                $('#migrateLoader').hide(); $('#migrateBtn').prop('disabled', false);
+                if(data.success) {
+                    $('#migrateEmail').text(data.email);
+                    $('#newVlessLink').val(data.new_link);
+                    $('#migrateQrImage').attr('src', 'data:image/png;base64,' + data.qr);
+                    $('#migrateResult').fadeIn(400);
+                } else {
+                    $('#migrateError').text(data.message);
+                }
+            }, 'json').fail(() => {
+                $('#migrateLoader').hide(); $('#migrateBtn').prop('disabled', false);
+                $('#migrateError').text('خطا در ارتباط با سرور!');
+            });
+        }
+        function copyLink(areaId = "newLink") {
+            const copyText = document.getElementById(areaId);
             copyText.select();
             copyText.setSelectionRange(0, 99999);
             document.execCommand("copy");
@@ -1126,6 +1180,177 @@ def execute_toggle_client(config: PanelConfig, proto: str, client_key: str, link
     return execute_toggle_new(config, proto, client_key, link) or execute_toggle_legacy(config, proto, client_key, link)
 
 
+def make_qr_base64(link: str) -> str:
+    import qrcode
+
+    qr = qrcode.QRCode(version=1, box_size=10, border=1)
+    qr.add_data(link)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buffered = BytesIO()
+    img.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
+
+
+def fetch_client_raw_stats(config: PanelConfig, proto: str, client_key: str, link: str | None = None) -> dict[str, Any] | None:
+    api = XUIClient(config)
+    if api.login():
+        record = api.find_new_client(proto, client_key, link)
+        if record:
+            traffic = record.get("traffic") if isinstance(record.get("traffic"), dict) else {}
+            email = str(record.get("email") or traffic.get("email") or "")
+            if email:
+                detail = api.get_new_client_detail(email)
+                if detail:
+                    record = {**record, **detail}
+                return {
+                    "email": email,
+                    "up": int_value(traffic.get("up")),
+                    "down": int_value(traffic.get("down")),
+                    "total": int_value(traffic.get("total") or record.get("totalGB")),
+                    "expiryTime": int_value(traffic.get("expiryTime") or record.get("expiryTime")),
+                }
+
+        inbounds = api.list_legacy_inbounds()
+        if inbounds is not None:
+            for inbound in inbounds:
+                if proto == "ss" and inbound.get("protocol") != "shadowsocks":
+                    continue
+                if proto == "vless" and inbound.get("protocol") != "vless":
+                    continue
+                settings = load_settings(inbound.get("settings"))
+                for client in settings.get("clients", []):
+                    if not isinstance(client, dict):
+                        continue
+                    if proto == "vless" and client.get("id") != client_key:
+                        continue
+                    if proto == "ss" and not ss_client_matches(client, client_key, link):
+                        continue
+                    email = str(client.get("email") or "")
+                    stat = next((item for item in inbound.get("clientStats", []) if item.get("email") == email), {})
+                    return {
+                        "email": email,
+                        "up": int_value(stat.get("up")),
+                        "down": int_value(stat.get("down")),
+                        "total": int_value(stat.get("total") or client.get("totalGB")),
+                        "expiryTime": int_value(stat.get("expiryTime") or client.get("expiryTime")),
+                    }
+    return None
+
+
+def stream_settings_text(inbound: dict[str, Any]) -> str:
+    value = inbound.get("streamSettings")
+    if isinstance(value, str):
+        return value.lower()
+    return json.dumps(value or {}, separators=(",", ":")).lower()
+
+
+def find_vless_443_inbound(api: XUIClient) -> dict[str, Any] | None:
+    inbounds = api.list_legacy_inbounds()
+    if inbounds is None:
+        return None
+    for inbound in inbounds:
+        if inbound.get("protocol") == "vless" and int_value(inbound.get("port")) == 443:
+            return inbound
+    return None
+
+
+def build_vless_client_payload(email: str, uuid_value: str, total_bytes: int, expiry_time: int, inbound: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": uuid_value,
+        "security": "auto",
+        "password": "",
+        "flow": "xtls-rprx-vision" if "xtls" in stream_settings_text(inbound) else "",
+        "auth": "",
+        "email": email,
+        "limitIp": 2,
+        "totalGB": total_bytes,
+        "expiryTime": expiry_time,
+        "enable": True,
+        "tgId": 0,
+        "subId": "",
+        "group": "",
+        "comment": "",
+        "reset": 0,
+    }
+
+
+def add_or_update_vless_client(config: PanelConfig, email: str, total_bytes: int, expiry_time: int) -> tuple[str, str] | None:
+    api = XUIClient(config)
+    if not api.login():
+        return None
+    inbound = find_vless_443_inbound(api)
+    if not inbound:
+        api.last_error = "اینباند VLESS با پورت 443 در پنل مقصد پیدا نشد."
+        return None
+
+    inbound_id = int_value(inbound.get("id"))
+    new_uuid = str(uuid_tool.uuid4())
+    client_payload = build_vless_client_payload(email, new_uuid, total_bytes, expiry_time, inbound)
+
+    existing = api.get_new_client_detail(email)
+    if existing:
+        existing["inboundIds"] = existing.get("inboundIds") or [inbound_id]
+        if inbound_id not in [int_value(item) for item in existing.get("inboundIds", [])]:
+            existing["inboundIds"] = [*existing.get("inboundIds", []), inbound_id]
+        if api.update_new_client(existing, client_payload):
+            return new_uuid, api.last_error
+        return None
+
+    data = api.api("POST", "/clients/add", json={"client": client_payload, "inboundIds": [inbound_id]})
+    if api_success(data):
+        return new_uuid, ""
+
+    # Fallback for older 3x-ui releases.
+    legacy_payload = {
+        "id": inbound_id,
+        "settings": json.dumps({"clients": [client_payload]}, separators=(",", ":")),
+    }
+    legacy_data = api.api("POST", "/inbounds/addClient", data=legacy_payload)
+    if api_success(legacy_data):
+        return new_uuid, ""
+    return None
+
+
+def disable_origin_ss_client(config: PanelConfig, client_key: str, link: str) -> None:
+    api = XUIClient(config)
+    if not api.login():
+        return
+    record = api.find_new_client("ss", client_key, link)
+    ss_data = parse_ss_link(link) or {}
+    if record:
+        detail = api.get_new_client_detail(str(record.get("email") or ""))
+        if detail:
+            record = {**record, **detail}
+        payload = api.build_new_client_payload(record)
+        payload["enable"] = False
+        payload["password"] = generate_shadowsocks_key(ss_data.get("method"))
+        if api.update_new_client(record, payload):
+            return
+
+    inbounds = api.list_legacy_inbounds()
+    if inbounds is None:
+        return
+    for inbound in inbounds:
+        if inbound.get("protocol") != "shadowsocks":
+            continue
+        settings = load_settings(inbound.get("settings"))
+        for client in settings.get("clients", []):
+            if not isinstance(client, dict) or not ss_client_matches(client, client_key, link):
+                continue
+            disabled_client = client.copy()
+            disabled_client["enable"] = False
+            disabled_client["password"] = generate_shadowsocks_key(ss_data.get("method"))
+            payload = {
+                "id": inbound.get("id"),
+                "settings": json.dumps({"clients": [disabled_client]}, separators=(",", ":")),
+            }
+            candidates = [client.get("email"), client.get("password"), client_key, *ss_match_values(client_key, link)]
+            for candidate in dict.fromkeys(filter(None, candidates)):
+                if api_success(api.api("POST", f"/inbounds/updateClient/{quote(str(candidate), safe='')}", data=payload)):
+                    return
+
+
 def panel_search_order(target_domain: str | None) -> list[PanelConfig]:
     configs: list[PanelConfig] = []
     if target_domain and target_domain in PANELS:
@@ -1195,17 +1420,7 @@ def api_change():
     else:
         new_link = replace_ss_password(old_link, new_key)
 
-    import qrcode
-
-    qr = qrcode.QRCode(version=1, box_size=10, border=1)
-    qr.add_data(new_link)
-    qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    qr_base64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-
-    return jsonify({"success": True, "email": email, "new_link": new_link, "qr": qr_base64})
+    return jsonify({"success": True, "email": email, "new_link": new_link, "qr": make_qr_base64(new_link)})
 
 
 @app.route("/api/toggle", methods=["POST"])
@@ -1233,5 +1448,71 @@ def api_toggle():
     return jsonify({"success": True, "email": email, "current_status": new_status})
 
 
+@app.route("/api/migrate", methods=["POST"])
+def api_migrate():
+    ss_link = request.form.get("link", "").strip()
+    proto, client_key, src_domain = parse_config_link(ss_link)
+    if proto != "ss" or not client_key:
+        return jsonify({"success": False, "message": "لینک فرستاده شده ساختار پروتکل Shadowsocks را ندارد!"})
+
+    src_config = PANELS.get("linksh.gozar8.ir")
+    dest_config = PANELS.get("linkw.gozar8.ir")
+    if not src_config or not dest_config:
+        return jsonify({"success": False, "message": "تنظیمات اتصال پنل‌های linksh یا linkw پیدا نشد!"})
+
+    if src_domain and src_domain != "linksh.gozar8.ir":
+        # لینک‌های قدیمی گاهی دامنه متفاوت دارند؛ همچنان پنل linksh را مبدا قطعی نگه می‌داریم.
+        pass
+
+    stats = fetch_client_raw_stats(src_config, "ss", client_key, ss_link)
+    if not stats:
+        return jsonify({"success": False, "message": "مشخصات اکانت شدوساکس در پنل مبدا (linksh.gozar8.ir) یافت نشد."})
+
+    email = str(stats.get("email") or "")
+    if not email:
+        return jsonify({"success": False, "message": "ایمیل کلاینت مبدا قابل تشخیص نیست."})
+
+    total_bytes = int_value(stats.get("total"))
+    used_bytes = int_value(stats.get("up")) + int_value(stats.get("down"))
+    if total_bytes > 0:
+        remaining_bytes = total_bytes - used_bytes
+        if remaining_bytes <= 0:
+            return jsonify({"success": False, "message": "حجم این اکانت در مبدا کاملاً به پایان رسیده است و قابل انتقال نیست!"})
+        target_total_bytes = remaining_bytes
+    else:
+        target_total_bytes = 0
+
+    target_email = f"{email}_tovless"
+    created = add_or_update_vless_client(dest_config, target_email, target_total_bytes, int_value(stats.get("expiryTime")))
+    if not created:
+        return jsonify({"success": False, "message": "پنل مقصد درخواست ثبت یا آپدیت کلاینت VLESS را رد کرد."})
+
+    new_uuid, _ = created
+    disable_origin_ss_client(src_config, client_key, ss_link)
+
+    old_remark = "Migrated-User"
+    parsed_ss = parse_ss_link(ss_link)
+    if parsed_ss and parsed_ss.get("remark"):
+        old_remark = parsed_ss["remark"]
+    elif "#" in ss_link:
+        old_remark = unquote(ss_link.split("#", 1)[1].strip())
+
+    dest_domain = dest_config.domain
+    new_remark = quote(f"{old_remark}-Vless", safe="")
+    new_vless_link = (
+        f"vless://{new_uuid}@{dest_domain}:443"
+        f"?type=ws&encryption=none&path=%2F&host={dest_domain}"
+        f"&security=tls&fp=chrome&alpn=h2%2Chttp%2F1.1%2Ch3&sni={dest_domain}"
+        f"#{new_remark}"
+    )
+
+    return jsonify({
+        "success": True,
+        "email": target_email,
+        "new_link": new_vless_link,
+        "qr": make_qr_base64(new_vless_link),
+    })
+
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "80")))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "8080")))
