@@ -41,6 +41,7 @@ MODEL_PATH = DATA / "model.joblib"
 
 PRICE_MIN = 5_000_000
 PRICE_MAX = 50_000_000_000
+QUOTE_STEP = 500_000
 
 CATEGORICAL = ["code", "status", "primary_type"]
 NUMERIC = [
@@ -465,7 +466,7 @@ class Engine:
         return {
             "number": analysis.number,
             "status": status,
-            "price": int(round(price)),
+            "price": round_quote(price),
             "model_price": int(round(model_price)),
             "source": source,
             "confidence": confidence,
@@ -496,6 +497,12 @@ class Engine:
             },
             path,
         )
+
+
+def round_quote(value: float, step: int = QUOTE_STEP) -> int:
+    """Nearest public quote. Halfway rounds away from zero, up to the step."""
+    amount = int(round(value))
+    return ((amount + step // 2) // step) * step
 
 
 def listings_from_rows(rows: list[dict]) -> list[Listing]:

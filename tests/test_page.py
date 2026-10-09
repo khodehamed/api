@@ -1,6 +1,7 @@
 import unittest
 
-from app.server import estimate_form, home
+from app.server import _toman, engine, estimate_form, home
+from app.valuation import round_quote
 
 
 class PageTests(unittest.TestCase):
@@ -30,3 +31,12 @@ class PageTests(unittest.TestCase):
             "فاصله",
         ):
             self.assertNotIn(phrase, html)
+
+    def test_quote_rounds_to_half_a_million(self):
+        self.assertEqual(round_quote(1_515_454_015), 1_515_500_000)
+        self.assertEqual(round_quote(1_250_000), 1_500_000)
+        self.assertEqual(round_quote(1_249_999), 1_000_000)
+        result = engine.estimate("09121796900", "USED")
+        self.assertEqual(result["price"] % 500_000, 0)
+        html = estimate_form("09121796900", "USED")
+        self.assertIn(_toman(result["price"]), html)
