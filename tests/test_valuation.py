@@ -8,7 +8,7 @@ def _row(number, price, status="LIKE_NEW"):
     return {"number": number, "price": price, "status": status}
 
 
-def _ordinary(block: str, count: int, base_price: int) -> list[dict]:
+def _ordinary(block: str, count: int, base_price: int, status: str = "LIKE_NEW") -> list[dict]:
     rows = []
     cursor = 0
     while len(rows) < count:
@@ -23,7 +23,7 @@ def _ordinary(block: str, count: int, base_price: int) -> list[dict]:
         analysis = detect(number)
         if analysis is None or analysis.primary != "معمولی" or analysis.trailing_zeros:
             continue
-        rows.append(_row(number, base_price + len(rows) * 250_000))
+        rows.append(_row(number, base_price + len(rows) * 250_000, status))
     return rows
 
 
@@ -91,6 +91,21 @@ class ValuationTests(unittest.TestCase):
         result = self.engine.estimate("09121796100")
         self.assertEqual(result["source"], "آگهی همین شماره")
         self.assertGreater(result["price"], 300_000_000)
+
+    def test_used_quote_stays_with_used_neighbors(self):
+        block = _ordinary("186", 10, 420_000_000, "USED")
+        rows = list(block[:8])
+        rows.append(_row(block[8]["number"], 2_200_000_000, "LIKE_NEW"))
+        rows.extend(_ordinary("320", 20, 80_000_000))
+        rows.extend(_ordinary("410", 20, 90_000_000))
+        rows.extend(_ordinary("510", 15, 100_000_000))
+        engine = build_engine(rows)
+        result = engine.estimate(block[9]["number"], "USED")
+        self.assertLess(result["price"], 900_000_000)
+        self.assertGreater(result["price"], 300_000_000)
+        self.assertTrue(result["samples"])
+        self.assertTrue(all(sample["status"] == "USED" for sample in result["samples"]))
+        self.assertTrue(all(sample["block3"] == "186" for sample in result["samples"]))
 
     def test_ordinary_label_when_no_rond_class(self):
         result = self.engine.estimate("09122017384")

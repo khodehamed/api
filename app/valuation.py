@@ -205,10 +205,29 @@ def _middle_weight(middle: str) -> int:
     return 4
 
 
-def distance(query: Analysis, listing: Listing) -> float:
+# A zero line and a used line in the same block are not the same sale.
+# The gap is large enough that a moderately close same-status ad outranks
+# an almost-identical ad in a different condition.
+_STATUS_GAP = {
+    frozenset({"USED", "LIKE_NEW"}): 10.0,
+    frozenset({"USED", "BRAND_NEW_WITHOUT_NAME"}): 14.0,
+    frozenset({"USED", "BRAND_NEW_WITH_NAME"}): 16.0,
+    frozenset({"LIKE_NEW", "BRAND_NEW_WITHOUT_NAME"}): 6.0,
+    frozenset({"LIKE_NEW", "BRAND_NEW_WITH_NAME"}): 8.0,
+    frozenset({"BRAND_NEW_WITHOUT_NAME", "BRAND_NEW_WITH_NAME"}): 6.0,
+}
+
+
+def status_gap(left: str, right: str) -> float:
+    if not left or not right or left == right:
+        return 0.0
+    return _STATUS_GAP.get(frozenset({left, right}), 24.0)
+
+
+def distance(query: Analysis, listing: Listing, status: str = "") -> float:
     if query.number == listing.number:
         return 0.0
-    score = 0.0
+    score = status_gap(status, listing.status)
     query_price_class = pricing_name(query.primary)
     listing_price_class = pricing_name(listing.primary)
     if query_price_class != listing_price_class:
@@ -269,10 +288,60 @@ class MarketIndex:
                     return chosen
         return chosen
 
-    def nearest(self, query: Analysis, k: int = 12) -> list[tuple[float, Listing]]:
-        scored = [(distance(query, listing), listing) for listing in self.candidates(query)]
-        scored.sort(key=lambda item: (item[0], item[1].price))
+    def nearest(self, query: Analysis, k: int = 12, status: str = "") -> list[tuple[float, Listing]]:
+        scored = [
+            (distance(query, listing, status), listing) for listing in self.candidates(query)
+        ]
+        scored.sort(key=lambda item: (item[0], item[1].price, item[1].number))
         return scored[:k]
+
+
+def trim_comps(
+    scored: list[tuple[float, Listing]],
+    limit: int = 8,
+) -> list[tuple[float, Listing]]:
+    """Keep the nearest ads and drop a price that is far from that neighborhood."""
+    pool = list(scored[:limit])
+    if len(pool) < 4:
+        return pool
+    anchor = float(np.median([listing.price for _, listing in pool[:5]]))
+    kept = [
+        item
+        for item in pool
+        if anchor / 2.2 <= item[1].price <= anchor * 2.2
+    ]
+    return kept if len(kept) >= 3 else pool[:5]
+
+
+def closeness_weights(scored: list[tuple[float, Listing]]) -> list[tuple[float, float]]:
+    """Closer ads count for more, but not so much that one listing sets the price."""
+    return [(listing.price, 1.0 / (1.0 + dist) ** 1.4) for dist, listing in scored]
+
+
+def local_comps(
+    analysis: Analysis,
+    neighbors: list[tuple[float, Listing]],
+    status: str,
+    blend_gap: float,
+) -> list[tuple[float, Listing]]:
+    """Same-condition ads that can actually price this number.
+
+    Ordinary lines stay inside their 3-digit block. A priced rond class may
+    look across blocks, but still only at the same condition and the same class.
+    """
+    ordinary = pricing_name(analysis.primary) == "معمولی"
+    wanted = pricing_name(analysis.primary)
+    chosen = []
+    for dist, listing in neighbors:
+        if listing.status != status:
+            continue
+        if ordinary:
+            if listing.block3 != analysis.block3 or dist > 48:
+                continue
+        elif pricing_name(listing.primary) != wanted or dist > blend_gap:
+            continue
+        chosen.append((dist, listing))
+    return chosen
 
 
 def weighted_median(pairs: list[tuple[float, float]]) -> float:
@@ -407,20 +476,25 @@ class Engine:
             for listing in self.index.by_number.get(analysis.number, [])
             if listing.price > 0
         ]
-        neighbors = self.index.nearest(analysis, k=12)
+        neighbors = self.index.nearest(analysis, k=48, status=status)
         tight = [(dist, listing) for dist, listing in neighbors if dist <= self.blend_gap]
+        local = local_comps(analysis, neighbors, status, self.blend_gap)
         # An exact listing is a market fact, not a neighbor to be diluted.
         if exact:
             anchor = float(np.median([listing.price for listing in exact]))
             price = 0.85 * anchor + 0.15 * model_price
             source = "آگهی همین شماره"
             used = [(0.0, listing) for listing in exact[:5]]
+        elif len(local) >= 3:
+            priced = trim_comps(local)
+            comp_price = weighted_median(closeness_weights(priced))
+            blend = 0.94 if priced[0][0] <= 18 else 0.84
+            price = blend * comp_price + (1 - blend) * model_price
+            source = "آگهی‌های هم‌وضعیت"
+            used = priced[:6]
         elif len(tight) >= 4:
-            pairs = []
-            for dist, listing in tight:
-                weight = 1.0 / (1.0 + dist)
-                pairs.append((listing.price, weight))
-            comp_price = weighted_median(pairs)
+            tight = trim_comps(tight)
+            comp_price = weighted_median(closeness_weights(tight))
             # Very close listings are the market. The model only fills gaps.
             weight = 0.9 if tight[0][0] <= 25 else self.blend_weight
             price = weight * comp_price + (1 - weight) * model_price
