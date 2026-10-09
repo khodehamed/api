@@ -40,3 +40,13 @@ class PageTests(unittest.TestCase):
         self.assertEqual(result["price"] % 500_000, 0)
         html = estimate_form("09121796900", "USED")
         self.assertIn(_toman(result["price"]), html)
+
+    def test_heading_and_deal_price(self):
+        self.assertIn("تخمین قیمت سیم‌کارت شما", home())
+        result = engine.estimate("09121796900", "USED")
+        self.assertEqual(result["deal_price"], round_quote(result["price"] * 0.9))
+        self.assertLess(result["deal_price"], result["price"])
+        self.assertEqual(result["deal_price"] % 500_000, 0)
+        html = estimate_form("09121796900", "USED")
+        self.assertIn("قیمت معامله", html)
+        self.assertIn(_toman(result["deal_price"]), html)

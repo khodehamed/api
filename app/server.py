@@ -26,7 +26,7 @@ PAGE = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#efe8dc">
-<title>۷گذر · قیمت سیم‌کارت</title>
+<title>۷گذر · تخمین قیمت سیم‌کارت شما</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23171412'/%3E%3Ctext x='16' y='22' text-anchor='middle' font-size='15' font-family='Georgia,serif' fill='%23f4ead7'%3E7%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -68,7 +68,7 @@ PAGE = """<!DOCTYPE html>
     display: block; width: 26px; height: 2px; margin-top: 8px; background: var(--gold); border-radius: 2px;
   }
   .eyebrow { margin: 0; color: var(--muted); font-size: 0.82rem; font-weight: 500; }
-  h1 { margin: 0 0 22px; font-size: 1.85rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.25; }
+  h1 { margin: 0 0 22px; font-size: clamp(1.45rem, 4.6vw, 1.85rem); font-weight: 800; letter-spacing: -0.04em; line-height: 1.35; }
   form, .result, .comps {
     background: var(--card);
     border: 1px solid rgba(23, 20, 18, 0.06);
@@ -125,7 +125,15 @@ PAGE = """<!DOCTYPE html>
     margin: 0; font-size: clamp(1.7rem, 7vw, 2.35rem); font-weight: 800;
     letter-spacing: -0.04em; line-height: 1.15;
   }
+  .kicker { margin: 0 0 6px; color: var(--muted); font-size: 0.78rem; font-weight: 600; }
   .unit { display: block; margin-top: 4px; color: var(--muted); font-size: 0.85rem; font-weight: 500; }
+  .deal {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    margin-top: 16px; padding-top: 14px; border-top: 1px dashed var(--line);
+  }
+  .deal-label { margin: 0; color: var(--muted); font-size: 0.82rem; font-weight: 600; }
+  .deal-amount { margin: 0; font-size: 1.15rem; font-weight: 800; letter-spacing: -0.03em; }
+  .deal-amount span { color: var(--muted); font-size: 0.75rem; font-weight: 500; margin-inline-start: 4px; }
   .comps { margin-top: 14px; padding: 8px 22px 10px; }
   .comps h2 { margin: 14px 0 4px; font-size: 0.82rem; font-weight: 700; color: var(--muted); }
   .comp {
@@ -138,7 +146,7 @@ PAGE = """<!DOCTYPE html>
   .cprice { font-weight: 700; font-size: 0.92rem; letter-spacing: -0.03em; }
   @media (max-width: 420px) {
     .wrap { padding-top: 28px; }
-    h1 { font-size: 1.6rem; }
+    h1 { font-size: 1.42rem; }
     form, .result, .comps { border-radius: 22px; }
   }
 </style>
@@ -149,7 +157,7 @@ PAGE = """<!DOCTYPE html>
     <a class="logo" href="/">۷گذر<span></span></a>
     <p class="eyebrow">۰۹۱۲</p>
   </div>
-  <h1>قیمت سیم‌کارت</h1>
+  <h1>تخمین قیمت سیم‌کارت شما</h1>
   <!--BODY-->
 </div>
 </body>
@@ -250,8 +258,13 @@ def _result_html(result: dict, phone: str, status: str) -> str:
   <p class="facts">{facts}</p>
   <div class="badges">{badges}</div>
   <div class="quote">
+    <p class="kicker">تخمین</p>
     <p class="amount">{_toman(result["price"])}</p>
     <span class="unit">تومان</span>
+    <div class="deal">
+      <p class="deal-label">قیمت معامله</p>
+      <p class="deal-amount">{_toman(result["deal_price"])} <span>تومان</span></p>
+    </div>
   </div>
 </section>
 {comps}

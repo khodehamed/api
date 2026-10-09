@@ -463,10 +463,12 @@ class Engine:
                     "trailing_zeros": listing.trailing_zeros,
                 }
             )
+        quoted = round_quote(price)
         return {
             "number": analysis.number,
             "status": status,
-            "price": round_quote(price),
+            "price": quoted,
+            "deal_price": round_quote(quoted * 0.9),
             "model_price": int(round(model_price)),
             "source": source,
             "confidence": confidence,
