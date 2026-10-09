@@ -52,6 +52,16 @@ class MarketSnapshotTests(unittest.TestCase):
         for sample in result["samples"]:
             self.assertEqual(sample["primary"], "گفتاری نزدیک")
 
+    def test_first_step_is_compared_only_with_its_own_class(self):
+        result = self.engine.estimate("09123767753", "USED")
+        self.assertEqual(result["primary"], "پله‌ای از اول")
+        self.assertEqual(result["price_pattern"], "پله‌ای از اول")
+        self.assertNotIn("سه پله", result["types"])
+        self.assertTrue(result["samples"])
+        for sample in result["samples"]:
+            self.assertEqual(sample["primary"], "پله‌ای از اول")
+            self.assertEqual(sample["block3"], "376")
+
     def test_api_shape(self):
         result = self.engine.estimate("09122251225")
         self.assertEqual(result["primary"], "ترازویی")

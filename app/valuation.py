@@ -219,7 +219,13 @@ def _pattern_bar(name: str) -> tuple[int, float]:
 
 
 def choose_price_pattern(analysis: Analysis, premiums: dict) -> str:
-    """Highest mined coefficient among the patterns this number actually has."""
+    """Highest mined coefficient among the patterns this number actually has.
+
+    A modest class such as پله‌ای از اول still prices itself. It must not be
+    folded into ordinary ads, and it must not borrow a different class such
+    as سه پله. The expensive class wins only when the market actually pays
+    more for it.
+    """
     best_name = "معمولی"
     best_premium = 1.0
     for name in analysis.types:
@@ -232,11 +238,24 @@ def choose_price_pattern(analysis: Analysis, premiums: dict) -> str:
             continue
         best_premium = premium
         best_name = name
-    if best_name in MILD_OWN_KIND:
+    if best_premium >= MIN_PATTERN_PREMIUM or best_name in MILD_OWN_KIND:
         return best_name
-    if best_premium < MIN_PATTERN_PREMIUM:
-        return pricing_name(analysis.primary)
-    return best_name
+    primary = analysis.primary
+    row = premiums.get(f"{analysis.code}|{primary}") or {}
+    if primary != "معمولی" and row.get("count", 0) >= MIN_PATTERN_COUNT:
+        return primary
+    return pricing_name(primary)
+
+
+def pattern_crosses_blocks(kind: str, code: int, premiums: dict) -> bool:
+    """Only a class the market pays extra for may leave its 3-digit block."""
+    if kind == "معمولی":
+        return False
+    if kind in MILD_OWN_KIND or SPECIFICITY.get(kind, 100) <= STRONG_RANK:
+        return True
+    row = premiums.get(f"{code}|{kind}") or {}
+    premium = row.get("premium") or 0
+    return row.get("count", 0) >= MIN_PATTERN_COUNT and premium >= MIN_PATTERN_PREMIUM
 
 
 def _middle_weight(middle: str) -> int:
@@ -330,10 +349,16 @@ class MarketIndex:
                 self.by_code_pattern[(listing.code, name)].append(listing)
             self.by_code_zeros[(listing.code, listing.trailing_zeros)].append(listing)
 
-    def candidates(self, query: Analysis, limit: int = 500, price_class: str = "") -> list[Listing]:
+    def candidates(
+        self,
+        query: Analysis,
+        limit: int = 500,
+        price_class: str = "",
+        cross_block: bool = True,
+    ) -> list[Listing]:
         pools = [self.by_code_block.get((query.code, query.block3), [])]
         kind = price_class or pricing_name(query.primary)
-        if kind != "معمولی":
+        if kind != "معمولی" and cross_block:
             pools.append(self.by_code_pattern.get((query.code, kind), []))
         if query.trailing_zeros >= 2:
             pools.append(self.by_code_zeros.get((query.code, query.trailing_zeros), []))
@@ -356,11 +381,12 @@ class MarketIndex:
         k: int = 12,
         status: str = "",
         price_class: str = "",
+        cross_block: bool = True,
     ) -> list[tuple[float, Listing]]:
         kind = price_class or pricing_name(query.primary)
         scored = [
             (distance(query, listing, status, kind), listing)
-            for listing in self.candidates(query, price_class=kind)
+            for listing in self.candidates(query, price_class=kind, cross_block=cross_block)
         ]
         scored.sort(key=lambda item: (item[0], item[1].price, item[1].number))
         return scored[:k]
@@ -411,13 +437,9 @@ def local_comps(
                 continue
             if listing.primary != "معمولی" and listing.primary != analysis.primary:
                 continue
-        elif not _carries(listing, kind) or dist > blend_gap:
+        elif listing.primary != kind or dist > blend_gap:
             continue
         chosen.append((dist, listing))
-    if not ordinary:
-        same_label = [item for item in chosen if item[1].primary == kind]
-        if len(same_label) >= 3:
-            return same_label
     return chosen
 
 
@@ -551,14 +573,25 @@ class Engine:
 
         model_price = max(self.predict_price(analysis, status), 0)
         kind = choose_price_pattern(analysis, self.premiums)
+        cross_block = pattern_crosses_blocks(kind, analysis.code, self.premiums)
         exact = [
             listing
             for listing in self.index.by_number.get(analysis.number, [])
             if listing.price > 0
         ]
-        neighbors = self.index.nearest(analysis, k=48, status=status, price_class=kind)
-        tight = [(dist, listing) for dist, listing in neighbors if dist <= self.blend_gap]
+        neighbors = self.index.nearest(
+            analysis, k=48, status=status, price_class=kind, cross_block=cross_block
+        )
         local = local_comps(analysis, neighbors, status, self.blend_gap, kind)
+        # A mild class with only one or two ads cannot set the price. Stay
+        # with the ordinary lines of the same block instead of the bare model.
+        if kind != "معمولی" and not cross_block and len(local) < 3:
+            kind = "معمولی"
+            neighbors = self.index.nearest(
+                analysis, k=48, status=status, price_class=kind, cross_block=False
+            )
+            local = local_comps(analysis, neighbors, status, self.blend_gap, kind)
+        tight = [(dist, listing) for dist, listing in neighbors if dist <= self.blend_gap]
         # An exact listing is a market fact, not a neighbor to be diluted.
         if exact:
             anchor = float(np.median([listing.price for listing in exact]))

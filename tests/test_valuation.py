@@ -120,6 +120,13 @@ class ValuationTests(unittest.TestCase):
         }
         self.assertEqual(choose_price_pattern(analysis, premiums), "جفت جفت از آخر")
 
+    def test_modest_step_stays_its_own_class(self):
+        analysis = detect("09123767753")
+        self.assertEqual(analysis.primary, "پله‌ای از اول")
+        self.assertNotIn("سه پله", analysis.types)
+        premiums = {"3|پله‌ای از اول": {"count": 300, "premium": 1.14}}
+        self.assertEqual(choose_price_pattern(analysis, premiums), "پله‌ای از اول")
+
     def test_ordinary_label_when_no_rond_class(self):
         result = self.engine.estimate("09122017384")
         self.assertEqual(result["primary"], "معمولی")
