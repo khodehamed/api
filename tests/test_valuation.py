@@ -125,6 +125,51 @@ class ValuationTests(unittest.TestCase):
         self.assertEqual(result["primary"], "معمولی")
         self.assertEqual(result["types"], ["معمولی"])
 
+    def test_ordinary_is_not_priced_from_other_models(self):
+        rows = _ordinary("751", 12, 120_000_000, "USED")
+        rows.extend(_ordinary("320", 20, 80_000_000))
+        rows.extend(_ordinary("410", 20, 90_000_000))
+        # A step, a sequence, and a separate pair in the same block.
+        rows.append(_row("09127514146", 900_000_000, "USED"))
+        rows.append(_row("09127512654", 800_000_000, "USED"))
+        rows.append(_row("09127514545", 750_000_000, "USED"))
+        self.assertEqual(detect("09127514146").primary, "پله‌ای از آخر")
+        self.assertNotEqual(detect("09127512654").primary, "معمولی")
+        self.assertNotEqual(detect("09127514545").primary, "معمولی")
+        engine = build_engine(rows)
+        result = engine.estimate("09127514568", "USED")
+        self.assertEqual(result["primary"], "معمولی")
+        self.assertEqual(result["price_pattern"], "معمولی")
+        self.assertGreater(result["price"], 100_000_000)
+        self.assertLess(result["price"], 250_000_000)
+        self.assertTrue(result["samples"])
+        self.assertTrue(all(sample["primary"] == "معمولی" for sample in result["samples"]))
+
+    def test_rhyming_spoken_uses_its_own_coefficient(self):
+        rows = _ordinary("033", 12, 140_000_000, "USED")
+        rows.extend(_ordinary("410", 20, 90_000_000))
+        rows.extend(_ordinary("510", 20, 100_000_000))
+        rhymes = []
+        for left in range(120, 980):
+            number = f"09120{left:03d}{left + 10:03d}"
+            if number == "09120339349":
+                continue
+            analysis = detect(number)
+            if analysis is not None and analysis.primary == "گفتاری نزدیک":
+                rhymes.append(number)
+            if len(rhymes) == 10:
+                break
+        self.assertEqual(len(rhymes), 10)
+        for number in rhymes:
+            rows.append(_row(number, 420_000_000, "USED"))
+        engine = build_engine(rows)
+        result = engine.estimate("09120339349", "USED")
+        self.assertEqual(result["price_pattern"], "گفتاری نزدیک")
+        self.assertGreater(result["price"], 300_000_000)
+        self.assertLess(result["price"], 600_000_000)
+        self.assertTrue(result["samples"])
+        self.assertTrue(all(sample["primary"] == "گفتاری نزدیک" for sample in result["samples"]))
+
 
 if __name__ == "__main__":
     unittest.main()

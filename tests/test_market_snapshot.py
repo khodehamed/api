@@ -35,6 +35,23 @@ class MarketSnapshotTests(unittest.TestCase):
         self.assertTrue(result["samples"])
         self.assertTrue(all(sample["primary"] == result["price_pattern"] for sample in result["samples"]))
 
+    def test_ordinary_line_is_not_compared_with_other_models(self):
+        result = self.engine.estimate("09127514568", "USED")
+        self.assertEqual(result["primary"], "معمولی")
+        self.assertEqual(result["price_pattern"], "معمولی")
+        self.assertTrue(result["samples"])
+        for sample in result["samples"]:
+            self.assertEqual(sample["primary"], "معمولی")
+            self.assertEqual(sample["block3"], "751")
+
+    def test_rhyming_spoken_is_priced_with_its_own_kind(self):
+        result = self.engine.estimate("09120339349", "USED")
+        self.assertEqual(result["primary"], "گفتاری نزدیک")
+        self.assertEqual(result["price_pattern"], "گفتاری نزدیک")
+        self.assertTrue(result["samples"])
+        for sample in result["samples"]:
+            self.assertEqual(sample["primary"], "گفتاری نزدیک")
+
     def test_api_shape(self):
         result = self.engine.estimate("09122251225")
         self.assertEqual(result["primary"], "ترازویی")

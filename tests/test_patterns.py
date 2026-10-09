@@ -82,6 +82,21 @@ class PatternTests(unittest.TestCase):
     def test_spoken_pair(self):
         analysis = self.types("09124004001")
         self.assertIn("گفتاری", analysis.types)
+        self.assertNotIn("گفتاری نزدیک", analysis.types)
+
+    def test_rhyming_spoken_hundreds(self):
+        # 0912 0339 349 is said as 339 then 349, ten apart.
+        analysis = self.types("09120339349")
+        self.assertIn("گفتاری نزدیک", analysis.types)
+        self.assertEqual(analysis.primary, "گفتاری نزدیک")
+        self.assertNotIn("گفتاری", analysis.types)
+        # The same shape from the front: 120 then 130.
+        head = self.types("09121201305")
+        self.assertIn("گفتاری نزدیک", head.types)
+        # A hundred apart still rhymes: 220 then 320.
+        hundred = self.types("09122203205")
+        self.assertIn("گفتاری نزدیک", hundred.types)
+        self.assertNotIn("گفتاری نزدیک", self.types("09127514568").types)
 
     def test_double_pairs(self):
         analysis = self.types("09124545111")

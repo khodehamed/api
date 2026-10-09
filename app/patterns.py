@@ -43,21 +43,22 @@ SPECIFICITY = {
     "سه رقم یکی از اول": 24,
     "سه رقم یکی از وسط": 25,
     "سه رقم یکی از آخر": 26,
-    "جفت جفت از اول": 27,
-    "جفت جفت از آخر": 28,
-    "جفت اول و آخر": 29,
-    "جفت جفت مجزا": 30,
-    "تکرار ۲ رقم یکی": 31,
-    "پله‌ای از اول": 32,
-    "پله‌ای از آخر": 33,
-    "ترتیبی از اول": 34,
-    "ترتیبی از آخر": 35,
-    "ده دهی از اول": 36,
-    "ده دهی از آخر": 37,
-    "تاریخ تولدی": 38,
-    "حروفی": 39,
-    "تکرار پیش شماره": 40,
-    "کد پایین": 41,
+    "گفتاری نزدیک": 27,
+    "جفت جفت از اول": 28,
+    "جفت جفت از آخر": 29,
+    "جفت اول و آخر": 30,
+    "جفت جفت مجزا": 31,
+    "تکرار ۲ رقم یکی": 32,
+    "پله‌ای از اول": 33,
+    "پله‌ای از آخر": 34,
+    "ترتیبی از اول": 35,
+    "ترتیبی از آخر": 36,
+    "ده دهی از اول": 37,
+    "ده دهی از آخر": 38,
+    "تاریخ تولدی": 39,
+    "حروفی": 40,
+    "تکرار پیش شماره": 41,
+    "کد پایین": 42,
     "معمولی": 100,
 }
 
@@ -155,6 +156,22 @@ def _pair_step_ok(a: str, b: str) -> bool:
     same_tens = a[0] == b[0]
     same_units = a[1] == b[1]
     return same_tens != same_units
+
+
+def _spoken_rhyme(a: str, b: str) -> bool:
+    """Two hundreds said as a pair: same phrase, ten or a hundred apart.
+
+    339 and 349 are «سیصد و سی و نه، سیصد و چهل و نه». Identical triples are
+    the catalog class «گفتاری» and are not matched here.
+    """
+    if len(a) != 3 or len(b) != 3 or a == b:
+        return False
+    if a == a[0] * 3 or b == b[0] * 3:
+        return False
+    left, right = int(a), int(b)
+    if left < 100 or right < 100:
+        return False
+    return abs(left - right) in (10, 100)
 
 
 def _triple_step_ok(a: str, b: str) -> bool:
@@ -325,6 +342,9 @@ def detect(raw: str) -> Analysis | None:
         _add(found, "گفتاری")
     if core[1:4] == core[4:7] and core[1:4] != core[1] * 3:
         _add(found, "گفتاری")
+    # 0912 0339 349 is read as 339 then 349. Same shape at either alignment.
+    if _spoken_rhyme(core[:3], core[3:6]) or _spoken_rhyme(core[1:4], core[4:7]):
+        _add(found, "گفتاری نزدیک")
 
     if core[0:2] == core[2:4] == core[4:6] and core[0] != core[1]:
         _add(found, "سه جفت از اول")

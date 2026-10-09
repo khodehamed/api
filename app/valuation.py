@@ -204,6 +204,18 @@ def pricing_name(primary: str) -> str:
 # pair at the tail is rarer and much more expensive, so the pair wins.
 MIN_PATTERN_PREMIUM = 1.8
 MIN_PATTERN_COUNT = 8
+# A specific shape can set the comps with its own coefficient even when the
+# multiple over an ordinary line is modest. Loose classes (a step, a short
+# sequence, a birth year) stay off this list: they must not become the comp set.
+MILD_OWN_KIND = frozenset({"گفتاری نزدیک"})
+MILD_MIN_PREMIUM = 1.15
+MILD_MIN_COUNT = 8
+
+
+def _pattern_bar(name: str) -> tuple[int, float]:
+    if name in MILD_OWN_KIND:
+        return MILD_MIN_COUNT, MILD_MIN_PREMIUM
+    return MIN_PATTERN_COUNT, MIN_PATTERN_PREMIUM
 
 
 def choose_price_pattern(analysis: Analysis, premiums: dict) -> str:
@@ -212,12 +224,16 @@ def choose_price_pattern(analysis: Analysis, premiums: dict) -> str:
     best_premium = 1.0
     for name in analysis.types:
         row = premiums.get(f"{analysis.code}|{name}") or {}
-        if row.get("count", 0) < MIN_PATTERN_COUNT:
+        minimum, floor = _pattern_bar(name)
+        if row.get("count", 0) < minimum:
             continue
         premium = row.get("premium") or 0
-        if premium > best_premium:
-            best_premium = premium
-            best_name = name
+        if premium < floor or premium <= best_premium:
+            continue
+        best_premium = premium
+        best_name = name
+    if best_name in MILD_OWN_KIND:
+        return best_name
     if best_premium < MIN_PATTERN_PREMIUM:
         return pricing_name(analysis.primary)
     return best_name
@@ -263,6 +279,10 @@ def distance(query: Analysis, listing: Listing, status: str = "", price_class: s
         if not _carries(listing, kind):
             score += 90
     else:
+        # Every other model stays out of an ordinary comparison. A loose step
+        # is still a different model, and the same rule applies to all of them.
+        if listing.primary != "معمولی" and listing.primary != query.primary:
+            score += 90
         query_price_class = pricing_name(query.primary)
         listing_price_class = pricing_name(listing.primary)
         same_strong = (
@@ -285,7 +305,12 @@ def distance(query: Analysis, listing: Listing, status: str = "", price_class: s
     elif query.block4 != listing.block4:
         score += 16
     mismatches = sum(a != b for a, b in zip(query.middle4, listing.middle4))
-    score += mismatches * max(_middle_weight(query.middle4), _middle_weight(listing.middle4))
+    # A spoken pair is the whole number, so two different rhymes do not share
+    # a middle block. Digit distance would hide the comps that define the price.
+    middle_weight = max(_middle_weight(query.middle4), _middle_weight(listing.middle4))
+    if kind in {"گفتاری", "گفتاری نزدیک"}:
+        middle_weight = 1
+    score += mismatches * middle_weight
     score += abs(query.unique_digits - listing.unique_digits) * 5
     score += abs(query.max_run - listing.max_run) * 6
     return score or 1.0
@@ -383,6 +408,8 @@ def local_comps(
             continue
         if ordinary:
             if listing.block3 != analysis.block3 or dist > 48:
+                continue
+            if listing.primary != "معمولی" and listing.primary != analysis.primary:
                 continue
         elif not _carries(listing, kind) or dist > blend_gap:
             continue
@@ -506,9 +533,11 @@ class Engine:
     blend_weight: float = 0.72
 
     def predict_price(self, analysis: Analysis, status: str) -> float:
-        frame = feature_frame(
-            [feature_row(analysis, status, self.block_stats.value(analysis.block3))]
-        )
+        row = feature_row(analysis, status, self.block_stats.value(analysis.block3))
+        known = self.encoder.maps.get("primary_type", {})
+        if row["primary_type"] not in known:
+            row["primary_type"] = "معمولی"
+        frame = feature_frame([row])
         frame = frame.reindex(columns=self.columns)
         encoded = self.encoder.transform(frame)
         return float(_predict(self.model, encoded)[0])
@@ -745,6 +774,36 @@ def save_listings(listings: list[Listing], path: Path = DB_PATH) -> None:
     conn.close()
 
 
+def _refresh_pattern(listing: Listing) -> Listing:
+    """Re-read the rond classes so a newly recognized shape is on every ad."""
+    analysis = detect(listing.number)
+    if analysis is None:
+        return listing
+    types = tuple(analysis.types)
+    if (
+        listing.primary == analysis.primary
+        and listing.types == types
+        and listing.trailing_zeros == analysis.trailing_zeros
+        and listing.unique_digits == analysis.unique_digits
+        and listing.max_run == analysis.max_run
+    ):
+        return listing
+    return Listing(
+        number=listing.number,
+        price=listing.price,
+        status=listing.status,
+        code=analysis.code,
+        block3=analysis.block3,
+        block4=analysis.block4,
+        middle4=analysis.middle4,
+        trailing_zeros=analysis.trailing_zeros,
+        primary=analysis.primary,
+        types=types,
+        unique_digits=analysis.unique_digits,
+        max_run=analysis.max_run,
+    )
+
+
 def load_listings(path: Path = DB_PATH) -> list[Listing]:
     conn = sqlite3.connect(path)
     rows = conn.execute(
@@ -756,19 +815,21 @@ def load_listings(path: Path = DB_PATH) -> list[Listing]:
     ).fetchall()
     conn.close()
     return [
-        Listing(
-            number=row[0],
-            price=row[1],
-            status=row[2],
-            code=row[3],
-            block3=row[4],
-            block4=row[5],
-            middle4=row[6],
-            trailing_zeros=row[7],
-            primary=row[8],
-            types=tuple(part for part in (row[9] or "").split(",") if part),
-            unique_digits=row[10],
-            max_run=row[11],
+        _refresh_pattern(
+            Listing(
+                number=row[0],
+                price=row[1],
+                status=row[2],
+                code=row[3],
+                block3=row[4],
+                block4=row[5],
+                middle4=row[6],
+                trailing_zeros=row[7],
+                primary=row[8],
+                types=tuple(part for part in (row[9] or "").split(",") if part),
+                unique_digits=row[10],
+                max_run=row[11],
+            )
         )
         for row in rows
     ]
@@ -776,12 +837,13 @@ def load_listings(path: Path = DB_PATH) -> list[Listing]:
 
 def load_engine(model_path: Path = MODEL_PATH, db_path: Path = DB_PATH) -> Engine:
     blob = joblib.load(model_path)
+    listings = load_listings(db_path)
     return Engine(
         model=blob["model"],
         encoder=blob["encoder"],
         block_stats=blob["block_stats"],
-        index=MarketIndex(load_listings(db_path)),
-        premiums=blob["premiums"],
+        index=MarketIndex(listings),
+        premiums=pattern_premiums(listings),
         metrics=blob["metrics"],
         columns=blob["columns"],
         blend_gap=blob.get("blend_gap", 55.0),
