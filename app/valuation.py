@@ -198,6 +198,31 @@ def pricing_name(primary: str) -> str:
     return "معمولی"
 
 
+# A pattern is allowed to set the price only when the market actually pays
+# for it. The cutoff is a mined multiple of the ordinary line in the same
+# code, not the catalog order. Three-step is common and cheap; a repeated
+# pair at the tail is rarer and much more expensive, so the pair wins.
+MIN_PATTERN_PREMIUM = 1.8
+MIN_PATTERN_COUNT = 8
+
+
+def choose_price_pattern(analysis: Analysis, premiums: dict) -> str:
+    """Highest mined coefficient among the patterns this number actually has."""
+    best_name = "معمولی"
+    best_premium = 1.0
+    for name in analysis.types:
+        row = premiums.get(f"{analysis.code}|{name}") or {}
+        if row.get("count", 0) < MIN_PATTERN_COUNT:
+            continue
+        premium = row.get("premium") or 0
+        if premium > best_premium:
+            best_premium = premium
+            best_name = name
+    if best_premium < MIN_PATTERN_PREMIUM:
+        return pricing_name(analysis.primary)
+    return best_name
+
+
 def _middle_weight(middle: str) -> int:
     unique = len(set(middle))
     if unique <= 2 or middle == middle[::-1]:
@@ -224,21 +249,31 @@ def status_gap(left: str, right: str) -> float:
     return _STATUS_GAP.get(frozenset({left, right}), 24.0)
 
 
-def distance(query: Analysis, listing: Listing, status: str = "") -> float:
+def _carries(listing: Listing, pattern: str) -> bool:
+    return listing.primary == pattern or pattern in listing.types
+
+
+def distance(query: Analysis, listing: Listing, status: str = "", price_class: str = "") -> float:
     if query.number == listing.number:
         return 0.0
     score = status_gap(status, listing.status)
-    query_price_class = pricing_name(query.primary)
-    listing_price_class = pricing_name(listing.primary)
-    if query_price_class != listing_price_class:
-        if "معمولی" in (query_price_class, listing_price_class):
-            score += 80
-        else:
-            score += 120
+    kind = price_class or pricing_name(query.primary)
+    if kind != "معمولی":
+        same_strong = True
+        if not _carries(listing, kind):
+            score += 90
+    else:
+        query_price_class = pricing_name(query.primary)
+        listing_price_class = pricing_name(listing.primary)
+        same_strong = (
+            query_price_class == listing_price_class and query_price_class != "معمولی"
+        )
+        if query_price_class != listing_price_class:
+            if "معمولی" in (query_price_class, listing_price_class):
+                score += 80
+            else:
+                score += 120
     score += abs(query.trailing_zeros - listing.trailing_zeros) * 50
-    same_strong = (
-        query_price_class == listing_price_class and query_price_class != "معمولی"
-    )
     same_zero_tail = (
         query.trailing_zeros >= 2 and query.trailing_zeros == listing.trailing_zeros
     )
@@ -266,13 +301,15 @@ class MarketIndex:
         for listing in listings:
             self.by_number[listing.number].append(listing)
             self.by_code_block[(listing.code, listing.block3)].append(listing)
-            self.by_code_pattern[(listing.code, listing.primary)].append(listing)
+            for name in listing.types or (listing.primary,):
+                self.by_code_pattern[(listing.code, name)].append(listing)
             self.by_code_zeros[(listing.code, listing.trailing_zeros)].append(listing)
 
-    def candidates(self, query: Analysis, limit: int = 500) -> list[Listing]:
+    def candidates(self, query: Analysis, limit: int = 500, price_class: str = "") -> list[Listing]:
         pools = [self.by_code_block.get((query.code, query.block3), [])]
-        if pricing_name(query.primary) != "معمولی":
-            pools.append(self.by_code_pattern.get((query.code, query.primary), []))
+        kind = price_class or pricing_name(query.primary)
+        if kind != "معمولی":
+            pools.append(self.by_code_pattern.get((query.code, kind), []))
         if query.trailing_zeros >= 2:
             pools.append(self.by_code_zeros.get((query.code, query.trailing_zeros), []))
         seen: set[int] = set()
@@ -288,9 +325,17 @@ class MarketIndex:
                     return chosen
         return chosen
 
-    def nearest(self, query: Analysis, k: int = 12, status: str = "") -> list[tuple[float, Listing]]:
+    def nearest(
+        self,
+        query: Analysis,
+        k: int = 12,
+        status: str = "",
+        price_class: str = "",
+    ) -> list[tuple[float, Listing]]:
+        kind = price_class or pricing_name(query.primary)
         scored = [
-            (distance(query, listing, status), listing) for listing in self.candidates(query)
+            (distance(query, listing, status, kind), listing)
+            for listing in self.candidates(query, price_class=kind)
         ]
         scored.sort(key=lambda item: (item[0], item[1].price, item[1].number))
         return scored[:k]
@@ -323,14 +368,15 @@ def local_comps(
     neighbors: list[tuple[float, Listing]],
     status: str,
     blend_gap: float,
+    price_class: str = "",
 ) -> list[tuple[float, Listing]]:
     """Same-condition ads that can actually price this number.
 
-    Ordinary lines stay inside their 3-digit block. A priced rond class may
-    look across blocks, but still only at the same condition and the same class.
+    Ordinary lines stay inside their 3-digit block. A paid pattern may look
+    across blocks, but only at the same condition and the same pattern.
     """
-    ordinary = pricing_name(analysis.primary) == "معمولی"
-    wanted = pricing_name(analysis.primary)
+    kind = price_class or pricing_name(analysis.primary)
+    ordinary = kind == "معمولی"
     chosen = []
     for dist, listing in neighbors:
         if listing.status != status:
@@ -338,9 +384,13 @@ def local_comps(
         if ordinary:
             if listing.block3 != analysis.block3 or dist > 48:
                 continue
-        elif pricing_name(listing.primary) != wanted or dist > blend_gap:
+        elif not _carries(listing, kind) or dist > blend_gap:
             continue
         chosen.append((dist, listing))
+    if not ordinary:
+        same_label = [item for item in chosen if item[1].primary == kind]
+        if len(same_label) >= 3:
+            return same_label
     return chosen
 
 
@@ -471,14 +521,15 @@ class Engine:
             return {"error": "این نسخه روی پیش‌شماره ۰۹۱۲ آموزش دیده است."}
 
         model_price = max(self.predict_price(analysis, status), 0)
+        kind = choose_price_pattern(analysis, self.premiums)
         exact = [
             listing
             for listing in self.index.by_number.get(analysis.number, [])
             if listing.price > 0
         ]
-        neighbors = self.index.nearest(analysis, k=48, status=status)
+        neighbors = self.index.nearest(analysis, k=48, status=status, price_class=kind)
         tight = [(dist, listing) for dist, listing in neighbors if dist <= self.blend_gap]
-        local = local_comps(analysis, neighbors, status, self.blend_gap)
+        local = local_comps(analysis, neighbors, status, self.blend_gap, kind)
         # An exact listing is a market fact, not a neighbor to be diluted.
         if exact:
             anchor = float(np.median([listing.price for listing in exact]))
@@ -524,6 +575,14 @@ class Engine:
 
         key = f"{analysis.code}|{analysis.primary}"
         premium = self.premiums.get(key)
+        shown_types = list(analysis.types or ["معمولی"])
+        if kind != "معمولی" and kind in shown_types:
+            shown_types = [kind] + [name for name in shown_types if name != kind]
+        factors = []
+        for name in shown_types:
+            row = self.premiums.get(f"{analysis.code}|{name}") or {}
+            multiplier = row.get("premium") if row.get("count", 0) >= MIN_PATTERN_COUNT else None
+            factors.append({"name": name, "premium": multiplier})
         samples = []
         for dist, listing in used:
             samples.append(
@@ -547,7 +606,9 @@ class Engine:
             "source": source,
             "confidence": confidence,
             "primary": analysis.primary,
-            "types": analysis.types or ["معمولی"],
+            "price_pattern": kind,
+            "types": shown_types,
+            "factors": factors,
             "notes": analysis.notes,
             "block3": analysis.block3,
             "middle4": analysis.middle4,

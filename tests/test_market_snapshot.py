@@ -27,11 +27,13 @@ class MarketSnapshotTests(unittest.TestCase):
             self.assertGreaterEqual(sample["trailing_zeros"], 2)
             self.assertTrue(sample["number"].startswith("0912"))
 
-    def test_thousand_tail_uses_thousand_comps(self):
+    def test_paid_pattern_sets_the_comps(self):
         result = self.engine.estimate("09121112500")
-        self.assertEqual(result["primary"], "هزاری از آخر")
+        self.assertIn("هزاری از آخر", result["types"])
+        self.assertIn(result["price_pattern"], result["types"])
+        self.assertNotEqual(result["price_pattern"], "معمولی")
         self.assertTrue(result["samples"])
-        self.assertTrue(all(sample["primary"] == "هزاری از آخر" for sample in result["samples"]))
+        self.assertTrue(all(sample["primary"] == result["price_pattern"] for sample in result["samples"]))
 
     def test_api_shape(self):
         result = self.engine.estimate("09122251225")

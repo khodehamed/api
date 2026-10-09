@@ -193,6 +193,20 @@ def _phone_view(number: str) -> str:
     return number.translate(FA_DIGITS)
 
 
+def _factor_label(name: str, premium: float | None) -> str:
+    if not premium or premium < 1.3:
+        return name
+    figure = f"{premium:.1f}".replace(".", "٫").translate(FA_DIGITS)
+    return f"{name} ×{figure}"
+
+
+def _factors(result: dict) -> list[tuple[str, float | None]]:
+    rows = result.get("factors")
+    if rows:
+        return [(row["name"], row.get("premium")) for row in rows]
+    return [(name, None) for name in result.get("types") or []]
+
+
 def _known_status(status: str) -> str:
     return status if status in STATUS_LABEL else "USED"
 
@@ -227,8 +241,8 @@ def _result_html(result: dict, phone: str, status: str) -> str:
     if "error" in result:
         return _page(form + f'<p class="error">{_esc(result["error"])}</p>')
     badges = "".join(
-        f'<span class="badge{" plain" if name == "معمولی" else ""}">{_esc(name)}</span>'
-        for name in result["types"]
+        f'<span class="badge{" plain" if name == "معمولی" else ""}">{_esc(_factor_label(name, premium))}</span>'
+        for name, premium in _factors(result)
     )
     status_label = STATUS_LABEL.get(result.get("status") or status, STATUS_LABEL["USED"])
     facts = " · ".join(

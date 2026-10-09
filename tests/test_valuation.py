@@ -1,7 +1,7 @@
 import unittest
 
 from app.patterns import detect
-from app.valuation import build_engine
+from app.valuation import build_engine, choose_price_pattern
 
 
 def _row(number, price, status="LIKE_NEW"):
@@ -106,6 +106,19 @@ class ValuationTests(unittest.TestCase):
         self.assertTrue(result["samples"])
         self.assertTrue(all(sample["status"] == "USED" for sample in result["samples"]))
         self.assertTrue(all(sample["block3"] == "186" for sample in result["samples"]))
+
+    def test_repeated_pair_outranks_a_cheaper_step(self):
+        analysis = detect("09121030505")
+        self.assertIn("جفت جفت از آخر", analysis.types)
+        self.assertIn("سه پله", analysis.types)
+        premiums = {
+            "1|سه پله": {"count": 140, "premium": 2.4},
+            "1|جفت جفت از آخر": {"count": 50, "premium": 8.3},
+            "1|کد پایین": {"count": 400, "premium": 1.6},
+            "1|پله‌ای از اول": {"count": 500, "premium": 1.5},
+            "1|ده دهی از اول": {"count": 4, "premium": 3.0},
+        }
+        self.assertEqual(choose_price_pattern(analysis, premiums), "جفت جفت از آخر")
 
     def test_ordinary_label_when_no_rond_class(self):
         result = self.engine.estimate("09122017384")
