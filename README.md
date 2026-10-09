@@ -19,7 +19,7 @@ curl "http://127.0.0.1:8000/api/estimate?phone=09121796900&status=LIKE_NEW"
 
 ## داده و آموزش
 
-آگهی‌ها در `data/market.db` و مدل در `data/model.joblib` ذخیره شده‌اند. برای ساخت دوباره، صفحه‌های خام rond.ir باید در `/tmp/rond_pages/page_*.json` باشند و بعد:
+آگهی‌ها در `data/market.db` و مدل در `data/model.joblib` ذخیره شده‌اند. روی سرور، `simprice-refresh.timer` هر روز ساعت ۰۳:۳۰ به وقت تهران کل آگهی‌های قیمت‌دار ۰۹۱۲ را دوباره می‌گیرد، مدل را می‌سازد و فقط اگر کاتالوگ کامل باشد جایگزین قبلی می‌کند. برای ساخت دوباره از صفحه‌های ذخیره‌شده در `/tmp/rond_pages/page_*.json`:
 
 ```bash
 python scripts/train_market.py

@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import FastAPI, Form, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from app.refresh import freshness_line
 from app.valuation import load_engine
 
 app = FastAPI(title="تخمین قیمت سیم‌کارت ۰۹۱۲")
@@ -74,6 +75,7 @@ def _page(body: str) -> str:
 <main>
   <h1>تخمین قیمت سیم‌کارت ۰۹۱۲</h1>
   <p class="lead">الگوی رند از روی قواعد بازار شناسایی می‌شود و قیمت از آگهی‌های قیمت‌دار rond.ir یاد گرفته می‌شود. خط معمولی با خط رند، و بلوک ۲۰۰ با ۲۰۱، یکی فرض نمی‌شوند.</p>
+  <p class="meta">{freshness_line(engine.metrics.get("refreshed_at"))}</p>
   {body}
 </main>
 </body>
@@ -178,4 +180,8 @@ def estimate_api(
 
 @app.get("/api/health")
 def health():
-    return {"listings": engine.metrics.get("listings"), "metrics": engine.metrics}
+    return {
+        "listings": engine.metrics.get("listings"),
+        "refreshed_at": engine.metrics.get("refreshed_at"),
+        "metrics": engine.metrics,
+    }
