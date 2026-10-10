@@ -2,6 +2,7 @@
 
 import unittest
 
+from app.patterns import detect
 from app.valuation import DB_PATH, MODEL_PATH, load_engine
 
 
@@ -57,9 +58,15 @@ class MarketSnapshotTests(unittest.TestCase):
         self.assertEqual(result["primary"], "پله‌ای از اول")
         self.assertEqual(result["price_pattern"], "پله‌ای از اول")
         self.assertNotIn("سه پله", result["types"])
+        # Ads that are also پله‌ای از آخر were pricing this near 326 million.
+        # A one-factor step is the ordinary line of this block times its coefficient.
+        self.assertGreater(result["price"], 180_000_000)
+        self.assertLess(result["price"], 300_000_000)
         self.assertTrue(result["samples"])
         for sample in result["samples"]:
+            sample_types = set(detect(sample["number"]).types)
             self.assertEqual(sample["primary"], "پله‌ای از اول")
+            self.assertEqual(sample_types, {"پله‌ای از اول"})
             self.assertEqual(sample["block3"], "376")
 
     def test_api_shape(self):

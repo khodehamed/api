@@ -120,6 +120,36 @@ class ValuationTests(unittest.TestCase):
         }
         self.assertEqual(choose_price_pattern(analysis, premiums), "جفت جفت از آخر")
 
+    def test_extra_rond_does_not_raise_a_single_factor(self):
+        rows = _ordinary("376", 12, 230_000_000, "USED")
+        rows.extend(_ordinary("410", 20, 200_000_000, "USED"))
+        rows.extend(_ordinary("510", 20, 210_000_000, "USED"))
+        pure = []
+        for core in range(3_000_000, 4_000_000):
+            number = "0912" + f"{core:07d}"
+            if number == "09123767753":
+                continue
+            analysis = detect(number)
+            if analysis is None or set(analysis.types) != {"پله‌ای از اول"}:
+                continue
+            pure.append(number)
+            if len(pure) == 10:
+                break
+        self.assertEqual(len(pure), 10)
+        for number in pure:
+            rows.append(_row(number, 250_000_000, "USED"))
+        richer = "09123767479"
+        self.assertEqual(set(detect(richer).types), {"پله‌ای از اول", "پله‌ای از آخر"})
+        rows.append(_row(richer, 400_000_000, "USED"))
+        engine = build_engine(rows)
+        result = engine.estimate("09123767753", "USED")
+        self.assertEqual(result["price_pattern"], "پله‌ای از اول")
+        self.assertGreater(result["price"], 200_000_000)
+        self.assertLess(result["price"], 320_000_000)
+        self.assertNotIn(richer, [sample["number"] for sample in result["samples"]])
+        for sample in result["samples"]:
+            self.assertEqual(set(detect(sample["number"]).types), {"پله‌ای از اول"})
+
     def test_modest_step_stays_its_own_class(self):
         analysis = detect("09123767753")
         self.assertEqual(analysis.primary, "پله‌ای از اول")
@@ -157,12 +187,12 @@ class ValuationTests(unittest.TestCase):
         rows.extend(_ordinary("410", 20, 90_000_000))
         rows.extend(_ordinary("510", 20, 100_000_000))
         rhymes = []
-        for left in range(120, 980):
-            number = f"09120{left:03d}{left + 10:03d}"
+        for core in range(10_000_000):
+            number = "0912" + f"{core:07d}"
             if number == "09120339349":
                 continue
             analysis = detect(number)
-            if analysis is not None and analysis.primary == "گفتاری نزدیک":
+            if analysis is not None and set(analysis.types) == {"گفتاری نزدیک"}:
                 rhymes.append(number)
             if len(rhymes) == 10:
                 break

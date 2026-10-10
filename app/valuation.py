@@ -284,8 +284,11 @@ def status_gap(left: str, right: str) -> float:
     return _STATUS_GAP.get(frozenset({left, right}), 24.0)
 
 
-def _carries(listing: Listing, pattern: str) -> bool:
-    return listing.primary == pattern or pattern in listing.types
+def _same_model(query_types, listing: Listing, kind: str) -> bool:
+    """Same rond model, with none of the extra models this number lacks."""
+    if listing.primary != kind:
+        return False
+    return set(listing.types) <= set(query_types)
 
 
 def distance(query: Analysis, listing: Listing, status: str = "", price_class: str = "") -> float:
@@ -295,7 +298,8 @@ def distance(query: Analysis, listing: Listing, status: str = "", price_class: s
     kind = price_class or pricing_name(query.primary)
     if kind != "معمولی":
         same_strong = True
-        if not _carries(listing, kind):
+        # A step that is also a mirror is a different sale from a plain step.
+        if not _same_model(query.types, listing, kind):
             score += 90
     else:
         # Every other model stays out of an ordinary comparison. A loose step
@@ -437,10 +441,40 @@ def local_comps(
                 continue
             if listing.primary != "معمولی" and listing.primary != analysis.primary:
                 continue
-        elif listing.primary != kind or dist > blend_gap:
+        elif dist > blend_gap or not _same_model(analysis.types, listing, kind):
             continue
         chosen.append((dist, listing))
     return chosen
+
+
+def ordinary_base(
+    index: MarketIndex,
+    analysis: Analysis,
+    status: str,
+    premiums: dict,
+) -> float | None:
+    """Same-condition ordinary price for this block, else for this code."""
+    block_prices = [
+        listing.price
+        for listing in index.by_code_block.get((analysis.code, analysis.block3), [])
+        if listing.primary == "معمولی" and listing.status == status
+    ]
+    if len(block_prices) >= 3:
+        return float(np.median(block_prices))
+    code_prices = [
+        listing.price
+        for listing in index.listings
+        if listing.code == analysis.code
+        and listing.primary == "معمولی"
+        and listing.status == status
+    ]
+    if len(code_prices) >= MIN_PATTERN_COUNT:
+        return float(np.median(code_prices))
+    if block_prices:
+        return float(np.median(block_prices))
+    row = premiums.get(f"{analysis.code}|معمولی") or {}
+    median = row.get("median")
+    return float(median) if median else None
 
 
 def weighted_median(pairs: list[tuple[float, float]]) -> float:
@@ -460,23 +494,52 @@ def _predict(model, frame: pd.DataFrame) -> np.ndarray:
     return np.expm1(model.predict(frame))
 
 
+# A shorter piece of the same pattern, not a second rond. سه پله always
+# contains a two-pair step; that pair is not an extra model.
+CONTAINED_PATTERNS = {
+    "سه پله": frozenset({"پله‌ای از اول", "پله‌ای از آخر"}),
+    "سه جفت از اول": frozenset({"جفت جفت از اول"}),
+    "سه جفت از آخر": frozenset({"جفت جفت از آخر"}),
+    "سه جفت مجزا": frozenset({"جفت جفت مجزا", "تکرار ۲ رقم یکی"}),
+    "جفت جفت مجزا": frozenset({"تکرار ۲ رقم یکی"}),
+}
+
+
+def _solo_example(listing: Listing, pattern: str) -> bool:
+    """True when this ad's rond is that one model, with no extra model on top."""
+    if listing.primary != pattern:
+        return False
+    allowed = {pattern} | set(CONTAINED_PATTERNS.get(pattern, ()))
+    return set(listing.types) <= allowed
+
+
 def pattern_premiums(listings: list[Listing]) -> dict:
-    """Median asking price of each rond class inside each code, versus ordinary lines."""
+    """Each rond model's multiple over the ordinary line of the same code.
+
+    The multiple is taken from ads that carry that model and no extra rond.
+    A step that is also a mirror, or a decimal, does not set the step's
+    coefficient. When that clean group is too small, the class median is used.
+    """
     ordinary: dict[int, list[int]] = defaultdict(list)
     grouped: dict[tuple[int, str], list[int]] = defaultdict(list)
+    solo: dict[tuple[int, str], list[int]] = defaultdict(list)
     for listing in listings:
         grouped[(listing.code, listing.primary)].append(listing.price)
         if listing.primary == "معمولی":
             ordinary[listing.code].append(listing.price)
+        elif _solo_example(listing, listing.primary):
+            solo[(listing.code, listing.primary)].append(listing.price)
     report = {}
     for (code, pattern), prices in grouped.items():
+        clean = solo.get((code, pattern)) or []
+        used = clean if len(clean) >= MIN_PATTERN_COUNT else prices
         base_prices = ordinary.get(code) or []
         base = float(np.median(base_prices)) if base_prices else None
-        median = float(np.median(prices))
+        median = float(np.median(used))
         report[f"{code}|{pattern}"] = {
             "code": code,
             "pattern": pattern,
-            "count": len(prices),
+            "count": len(used),
             "median": int(median),
             "ordinary_median": int(base) if base else None,
             "premium": round(median / base, 2) if base else None,
@@ -583,9 +646,22 @@ class Engine:
             analysis, k=48, status=status, price_class=kind, cross_block=cross_block
         )
         local = local_comps(analysis, neighbors, status, self.blend_gap, kind)
-        # A mild class with only one or two ads cannot set the price. Stay
-        # with the ordinary lines of the same block instead of the bare model.
-        if kind != "معمولی" and not cross_block and len(local) < 3:
+        if kind != "معمولی" and not cross_block:
+            local = [item for item in local if item[1].block3 == analysis.block3]
+        factor_row = self.premiums.get(f"{analysis.code}|{kind}") or {}
+        premium_value = factor_row.get("premium")
+        has_factor = (
+            kind != "معمولی"
+            and premium_value is not None
+            and factor_row.get("count", 0) >= MIN_PATTERN_COUNT
+        )
+        base = ordinary_base(self.index, analysis, status, self.premiums) if has_factor else None
+        # The mined multiple over an ordinary line of this code. A class the
+        # market does not pay extra for still cannot price below that line.
+        factor_price = base * max(float(premium_value), 1.0) if has_factor and base else None
+        # No coefficient and too few ads of this class: use the ordinary
+        # lines of the block rather than the bare model.
+        if factor_price is None and kind != "معمولی" and not cross_block and len(local) < 3:
             kind = "معمولی"
             neighbors = self.index.nearest(
                 analysis, k=48, status=status, price_class=kind, cross_block=False
@@ -598,6 +674,22 @@ class Engine:
             price = 0.85 * anchor + 0.15 * model_price
             source = "آگهی همین شماره"
             used = [(0.0, listing) for listing in exact[:5]]
+        elif factor_price is not None and kind != "معمولی":
+            if len(local) >= 3:
+                priced = trim_comps(local)
+                comp_price = weighted_median(closeness_weights(priced))
+                # Same-model ads lead. The coefficient still moves the quote,
+                # and it leads when those ads sit near the mined multiple.
+                if comp_price > factor_price * 1.6:
+                    price = 0.78 * comp_price + 0.22 * factor_price
+                else:
+                    price = 0.55 * comp_price + 0.45 * factor_price
+                source = "آگهی‌های همین مدل و ضریب رندی"
+                used = priced[:6]
+            else:
+                price = factor_price
+                source = "ضریب مدل رندی نسبت به خط معمولی"
+                used = local[:6]
         elif len(local) >= 3:
             priced = trim_comps(local)
             comp_price = weighted_median(closeness_weights(priced))
@@ -624,9 +716,10 @@ class Engine:
             used = neighbors[:5]
 
         agreement = 1.0
+        reference = factor_price if factor_price is not None and kind != "معمولی" else model_price
         if used:
             comp_mid = float(np.median([listing.price for _, listing in used]))
-            agreement = 1 - min(abs(comp_mid - model_price) / max(comp_mid, 1), 1)
+            agreement = 1 - min(abs(comp_mid - reference) / max(comp_mid, 1), 1)
         best = used[0][0] if used else 999
         if exact or (best <= 20 and agreement > 0.75 and len(tight) >= 4):
             confidence = "بالا"

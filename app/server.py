@@ -194,9 +194,10 @@ def _phone_view(number: str) -> str:
 
 
 def _factor_label(name: str, premium: float | None) -> str:
-    if not premium or premium < 1.3:
+    if not premium or premium < 1.05:
         return name
-    figure = f"{premium:.1f}".replace(".", "٫").translate(FA_DIGITS)
+    digits = 1 if premium >= 2 else 2
+    figure = f"{premium:.{digits}f}".replace(".", "٫").translate(FA_DIGITS)
     return f"{name} ×{figure}"
 
 
