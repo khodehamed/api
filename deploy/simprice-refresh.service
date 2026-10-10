@@ -1,0 +1,13 @@
+[Unit]
+Description=Refresh the full 0912 listing database from rond.ir
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/simprice
+Environment=TZ=Asia/Tehran
+Environment=SIMPRICE_RESTART=1
+ExecStart=/opt/simprice/.venv/bin/python scripts/refresh_market.py
+TimeoutStartSec=2700
+Nice=10

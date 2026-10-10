@@ -1,0 +1,212 @@
+import unittest
+
+from app.patterns import detect
+from app.valuation import build_engine, choose_price_pattern
+
+
+def _row(number, price, status="LIKE_NEW"):
+    return {"number": number, "price": price, "status": status}
+
+
+def _ordinary(block: str, count: int, base_price: int, status: str = "LIKE_NEW") -> list[dict]:
+    rows = []
+    cursor = 0
+    while len(rows) < count:
+        tail = (
+            f"{(cursor * 7 + 2) % 10}"
+            f"{(cursor * 3 + 8) % 10}"
+            f"{(cursor * 9 + 4) % 10}"
+            f"{(cursor * 5 + 6) % 10}"
+        )
+        cursor += 1
+        number = "0912" + block + tail
+        analysis = detect(number)
+        if analysis is None or analysis.primary != "معمولی" or analysis.trailing_zeros:
+            continue
+        rows.append(_row(number, base_price + len(rows) * 250_000, status))
+    return rows
+
+
+class ValuationTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        rows = []
+        rows.extend(_ordinary("200", 25, 80_000_000))
+        rows.extend(_ordinary("201", 25, 150_000_000))
+        rows.extend(_ordinary("320", 15, 70_000_000))
+        zeros = [
+            ("09121796100", 390_000_000),
+            ("09121796200", 410_000_000),
+            ("09121796300", 405_000_000),
+            ("09121796400", 420_000_000),
+            ("09121796500", 415_000_000),
+            ("09121796800", 430_000_000),
+            ("09121797000", 440_000_000),
+            ("09121798000", 460_000_000),
+        ]
+        for number, price in zeros:
+            rows.append(_row(number, price))
+        for number, price in (
+            ("09122251225", 2_500_000_000),
+            ("09123341334", 2_200_000_000),
+            ("09124451445", 1_800_000_000),
+            ("09125561556", 1_600_000_000),
+            ("09126671667", 1_900_000_000),
+        ):
+            rows.append(_row(number, price))
+        rows.append(_row("09121111111", 9_000_000_000))
+        rows.append(_row("09122222222", 4_000_000_000))
+        rows.append(_row("09123333333", 3_000_000_000))
+        cls.engine = build_engine(rows)
+        cls.block_200 = rows[0]["number"]
+        cls.block_201 = next(row["number"] for row in rows if row["number"][4:7] == "201")
+
+    def test_same_pattern_not_cross_block(self):
+        left = self.engine.estimate("09122017384")
+        right = self.engine.estimate("09122007384")
+        self.assertEqual(detect("09122017384").primary, "معمولی")
+        self.assertEqual(detect("09122007384").primary, "معمولی")
+        self.assertGreater(left["price"], right["price"] * 1.25)
+        self.assertTrue(all(sample["block3"] == "201" for sample in left["samples"][:4]))
+        self.assertTrue(all(sample["block3"] == "200" for sample in right["samples"][:4]))
+
+    def test_trailing_zero_number_stays_with_its_kind(self):
+        result = self.engine.estimate("09121796900")
+        self.assertEqual(result["middle4"], "7969")
+        self.assertEqual(result["trailing_zeros"], 2)
+        self.assertEqual(result["primary"], "معمولی")
+        self.assertGreater(result["price"], 300_000_000)
+        self.assertLess(result["price"], 700_000_000)
+        for sample in result["samples"][:5]:
+            self.assertGreaterEqual(sample["trailing_zeros"], 2)
+            self.assertEqual(sample["block3"], "179")
+
+    def test_scale_is_not_priced_like_ordinary(self):
+        scale = self.engine.estimate("09122881288")
+        ordinary = self.engine.estimate("09122017384")
+        self.assertEqual(scale["primary"], "ترازویی")
+        self.assertGreater(scale["price"], ordinary["price"] * 3)
+
+    def test_exact_listing_anchors_the_price(self):
+        result = self.engine.estimate("09121796100")
+        self.assertEqual(result["source"], "آگهی همین شماره")
+        self.assertGreater(result["price"], 300_000_000)
+
+    def test_used_quote_stays_with_used_neighbors(self):
+        block = _ordinary("186", 10, 420_000_000, "USED")
+        rows = list(block[:8])
+        rows.append(_row(block[8]["number"], 2_200_000_000, "LIKE_NEW"))
+        rows.extend(_ordinary("320", 20, 80_000_000))
+        rows.extend(_ordinary("410", 20, 90_000_000))
+        rows.extend(_ordinary("510", 15, 100_000_000))
+        engine = build_engine(rows)
+        result = engine.estimate(block[9]["number"], "USED")
+        self.assertLess(result["price"], 900_000_000)
+        self.assertGreater(result["price"], 300_000_000)
+        self.assertTrue(result["samples"])
+        self.assertTrue(all(sample["status"] == "USED" for sample in result["samples"]))
+        self.assertTrue(all(sample["block3"] == "186" for sample in result["samples"]))
+
+    def test_repeated_pair_outranks_a_cheaper_step(self):
+        analysis = detect("09121030505")
+        self.assertIn("جفت جفت از آخر", analysis.types)
+        self.assertIn("سه پله", analysis.types)
+        premiums = {
+            "1|سه پله": {"count": 140, "premium": 2.4},
+            "1|جفت جفت از آخر": {"count": 50, "premium": 8.3},
+            "1|کد پایین": {"count": 400, "premium": 1.6},
+            "1|پله‌ای از اول": {"count": 500, "premium": 1.5},
+            "1|ده دهی از اول": {"count": 4, "premium": 3.0},
+        }
+        self.assertEqual(choose_price_pattern(analysis, premiums), "جفت جفت از آخر")
+
+    def test_extra_rond_does_not_raise_a_single_factor(self):
+        rows = _ordinary("376", 12, 230_000_000, "USED")
+        rows.extend(_ordinary("410", 20, 200_000_000, "USED"))
+        rows.extend(_ordinary("510", 20, 210_000_000, "USED"))
+        pure = []
+        for core in range(3_000_000, 4_000_000):
+            number = "0912" + f"{core:07d}"
+            if number == "09123767753":
+                continue
+            analysis = detect(number)
+            if analysis is None or set(analysis.types) != {"پله‌ای از اول"}:
+                continue
+            pure.append(number)
+            if len(pure) == 10:
+                break
+        self.assertEqual(len(pure), 10)
+        for number in pure:
+            rows.append(_row(number, 250_000_000, "USED"))
+        richer = "09123767479"
+        self.assertEqual(set(detect(richer).types), {"پله‌ای از اول", "پله‌ای از آخر"})
+        rows.append(_row(richer, 400_000_000, "USED"))
+        engine = build_engine(rows)
+        result = engine.estimate("09123767753", "USED")
+        self.assertEqual(result["price_pattern"], "پله‌ای از اول")
+        self.assertGreater(result["price"], 200_000_000)
+        self.assertLess(result["price"], 320_000_000)
+        self.assertNotIn(richer, [sample["number"] for sample in result["samples"]])
+        for sample in result["samples"]:
+            self.assertEqual(set(detect(sample["number"]).types), {"پله‌ای از اول"})
+
+    def test_modest_step_stays_its_own_class(self):
+        analysis = detect("09123767753")
+        self.assertEqual(analysis.primary, "پله‌ای از اول")
+        self.assertNotIn("سه پله", analysis.types)
+        premiums = {"3|پله‌ای از اول": {"count": 300, "premium": 1.14}}
+        self.assertEqual(choose_price_pattern(analysis, premiums), "پله‌ای از اول")
+
+    def test_ordinary_label_when_no_rond_class(self):
+        result = self.engine.estimate("09122017384")
+        self.assertEqual(result["primary"], "معمولی")
+        self.assertEqual(result["types"], ["معمولی"])
+
+    def test_ordinary_is_not_priced_from_other_models(self):
+        rows = _ordinary("751", 12, 120_000_000, "USED")
+        rows.extend(_ordinary("320", 20, 80_000_000))
+        rows.extend(_ordinary("410", 20, 90_000_000))
+        # A step, a sequence, and a separate pair in the same block.
+        rows.append(_row("09127514146", 900_000_000, "USED"))
+        rows.append(_row("09127512654", 800_000_000, "USED"))
+        rows.append(_row("09127514545", 750_000_000, "USED"))
+        self.assertEqual(detect("09127514146").primary, "پله‌ای از آخر")
+        self.assertNotEqual(detect("09127512654").primary, "معمولی")
+        self.assertNotEqual(detect("09127514545").primary, "معمولی")
+        engine = build_engine(rows)
+        result = engine.estimate("09127514568", "USED")
+        self.assertEqual(result["primary"], "معمولی")
+        self.assertEqual(result["price_pattern"], "معمولی")
+        self.assertGreater(result["price"], 100_000_000)
+        self.assertLess(result["price"], 250_000_000)
+        self.assertTrue(result["samples"])
+        self.assertTrue(all(sample["primary"] == "معمولی" for sample in result["samples"]))
+
+    def test_rhyming_spoken_uses_its_own_coefficient(self):
+        rows = _ordinary("033", 12, 140_000_000, "USED")
+        rows.extend(_ordinary("410", 20, 90_000_000))
+        rows.extend(_ordinary("510", 20, 100_000_000))
+        rhymes = []
+        for core in range(10_000_000):
+            number = "0912" + f"{core:07d}"
+            if number == "09120339349":
+                continue
+            analysis = detect(number)
+            if analysis is not None and set(analysis.types) == {"گفتاری نزدیک"}:
+                rhymes.append(number)
+            if len(rhymes) == 10:
+                break
+        self.assertEqual(len(rhymes), 10)
+        for number in rhymes:
+            rows.append(_row(number, 420_000_000, "USED"))
+        engine = build_engine(rows)
+        result = engine.estimate("09120339349", "USED")
+        self.assertEqual(result["price_pattern"], "گفتاری نزدیک")
+        self.assertGreater(result["price"], 300_000_000)
+        self.assertLess(result["price"], 600_000_000)
+        self.assertTrue(result["samples"])
+        self.assertTrue(all(sample["primary"] == "گفتاری نزدیک" for sample in result["samples"]))
+
+
+if __name__ == "__main__":
+    unittest.main()

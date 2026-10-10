@@ -1,0 +1,330 @@
+{
+  "metrics": {
+    "holdout_median_ape": 0.1031,
+    "holdout_rows": 8570,
+    "train_rows": 34278,
+    "listings": 42848
+  },
+  "top_premiums": [
+    {
+      "code": 1,
+      "pattern": "سه رقم یکی از اول",
+      "count": 79,
+      "median": 10500000000,
+      "ordinary_median": 690000000,
+      "premium": 15.22
+    },
+    {
+      "code": 2,
+      "pattern": "چهار رقم یکی از اول",
+      "count": 24,
+      "median": 4900000000,
+      "ordinary_median": 350000000,
+      "premium": 14.0
+    },
+    {
+      "code": 4,
+      "pattern": "چهار رقم یکی از اول",
+      "count": 15,
+      "median": 2000000000,
+      "ordinary_median": 192925000,
+      "premium": 10.37
+    },
+    {
+      "code": 1,
+      "pattern": "جفت جفت از آخر",
+      "count": 52,
+      "median": 5800000000,
+      "ordinary_median": 690000000,
+      "premium": 8.41
+    },
+    {
+      "code": 3,
+      "pattern": "چهار رقم یکی از اول",
+      "count": 17,
+      "median": 2000000000,
+      "ordinary_median": 250000000,
+      "premium": 8.0
+    },
+    {
+      "code": 2,
+      "pattern": "هزاری از اول",
+      "count": 23,
+      "median": 2750000000,
+      "ordinary_median": 350000000,
+      "premium": 7.86
+    },
+    {
+      "code": 1,
+      "pattern": "هزاری از آخر",
+      "count": 15,
+      "median": 4850000000,
+      "ordinary_median": 690000000,
+      "premium": 7.03
+    },
+    {
+      "code": 4,
+      "pattern": "هزاری از اول",
+      "count": 19,
+      "median": 1300000000,
+      "ordinary_median": 192925000,
+      "premium": 6.74
+    },
+    {
+      "code": 2,
+      "pattern": "سه رقم یکی از اول",
+      "count": 25,
+      "median": 1870000000,
+      "ordinary_median": 350000000,
+      "premium": 5.34
+    },
+    {
+      "code": 4,
+      "pattern": "گفتاری",
+      "count": 17,
+      "median": 799000000,
+      "ordinary_median": 192925000,
+      "premium": 4.14
+    },
+    {
+      "code": 1,
+      "pattern": "سه جفت مجزا",
+      "count": 27,
+      "median": 2500000000,
+      "ordinary_median": 690000000,
+      "premium": 3.62
+    },
+    {
+      "code": 2,
+      "pattern": "جفت جفت از اول",
+      "count": 56,
+      "median": 1035000000,
+      "ordinary_median": 350000000,
+      "premium": 2.96
+    },
+    {
+      "code": 1,
+      "pattern": "گفتاری",
+      "count": 25,
+      "median": 1950000000,
+      "ordinary_median": 690000000,
+      "premium": 2.83
+    },
+    {
+      "code": 1,
+      "pattern": "سه رقم یکی از آخر",
+      "count": 52,
+      "median": 1925000000,
+      "ordinary_median": 690000000,
+      "premium": 2.79
+    },
+    {
+      "code": 8,
+      "pattern": "گفتاری",
+      "count": 15,
+      "median": 519500000,
+      "ordinary_median": 186900000,
+      "premium": 2.78
+    },
+    {
+      "code": 1,
+      "pattern": "سه پله",
+      "count": 146,
+      "median": 1700000000,
+      "ordinary_median": 690000000,
+      "premium": 2.46
+    },
+    {
+      "code": 6,
+      "pattern": "سه رقم یکی از اول",
+      "count": 28,
+      "median": 377500000,
+      "ordinary_median": 159000000,
+      "premium": 2.37
+    },
+    {
+      "code": 0,
+      "pattern": "چهار رقم یکی از وسط",
+      "count": 22,
+      "median": 350000000,
+      "ordinary_median": 148250000,
+      "premium": 2.36
+    },
+    {
+      "code": 1,
+      "pattern": "جفت جفت از اول",
+      "count": 66,
+      "median": 1625000000,
+      "ordinary_median": 690000000,
+      "premium": 2.36
+    },
+    {
+      "code": 0,
+      "pattern": "هزاری از آخر",
+      "count": 18,
+      "median": 339950000,
+      "ordinary_median": 148250000,
+      "premium": 2.29
+    },
+    {
+      "code": 7,
+      "pattern": "سه رقم یکی از اول",
+      "count": 22,
+      "median": 330000000,
+      "ordinary_median": 145000000,
+      "premium": 2.28
+    },
+    {
+      "code": 1,
+      "pattern": "آینه‌ای",
+      "count": 435,
+      "median": 1550000000,
+      "ordinary_median": 690000000,
+      "premium": 2.25
+    },
+    {
+      "code": 2,
+      "pattern": "سه رقم یکی از آخر",
+      "count": 25,
+      "median": 770000000,
+      "ordinary_median": 350000000,
+      "premium": 2.2
+    },
+    {
+      "code": 3,
+      "pattern": "سه رقم یکی از اول",
+      "count": 45,
+      "median": 550000000,
+      "ordinary_median": 250000000,
+      "premium": 2.2
+    },
+    {
+      "code": 1,
+      "pattern": "ترتیبی از اول",
+      "count": 52,
+      "median": 1509778110,
+      "ordinary_median": 690000000,
+      "premium": 2.19
+    },
+    {
+      "code": 4,
+      "pattern": "سه رقم یکی از اول",
+      "count": 46,
+      "median": 407500000,
+      "ordinary_median": 192925000,
+      "premium": 2.11
+    },
+    {
+      "code": 5,
+      "pattern": "سه رقم یکی از اول",
+      "count": 47,
+      "median": 350000000,
+      "ordinary_median": 169000000,
+      "premium": 2.07
+    },
+    {
+      "code": 1,
+      "pattern": "پله‌ای از آخر",
+      "count": 609,
+      "median": 1400000000,
+      "ordinary_median": 690000000,
+      "premium": 2.03
+    },
+    {
+      "code": 1,
+      "pattern": "جفت جفت مجزا",
+      "count": 276,
+      "median": 1400000000,
+      "ordinary_median": 690000000,
+      "premium": 2.03
+    },
+    {
+      "code": 6,
+      "pattern": "جفت جفت از اول",
+      "count": 28,
+      "median": 315000000,
+      "ordinary_median": 159000000,
+      "premium": 1.98
+    },
+    {
+      "code": 1,
+      "pattern": "سه رقم یکی از وسط",
+      "count": 129,
+      "median": 1300000000,
+      "ordinary_median": 690000000,
+      "premium": 1.88
+    },
+    {
+      "code": 4,
+      "pattern": "جفت جفت از اول",
+      "count": 36,
+      "median": 360000000,
+      "ordinary_median": 192925000,
+      "premium": 1.87
+    },
+    {
+      "code": 8,
+      "pattern": "سه رقم یکی از اول",
+      "count": 49,
+      "median": 350000000,
+      "ordinary_median": 186900000,
+      "premium": 1.87
+    },
+    {
+      "code": 9,
+      "pattern": "جفت جفت مجزا",
+      "count": 187,
+      "median": 260000000,
+      "ordinary_median": 140000000,
+      "premium": 1.86
+    },
+    {
+      "code": 9,
+      "pattern": "جفت جفت از اول",
+      "count": 281,
+      "median": 260000000,
+      "ordinary_median": 140000000,
+      "premium": 1.86
+    },
+    {
+      "code": 0,
+      "pattern": "سه جفت مجزا",
+      "count": 83,
+      "median": 269900000,
+      "ordinary_median": 148250000,
+      "premium": 1.82
+    },
+    {
+      "code": 2,
+      "pattern": "سه پله",
+      "count": 93,
+      "median": 630000000,
+      "ordinary_median": 350000000,
+      "premium": 1.8
+    },
+    {
+      "code": 3,
+      "pattern": "جفت جفت از اول",
+      "count": 37,
+      "median": 450000000,
+      "ordinary_median": 250000000,
+      "premium": 1.8
+    },
+    {
+      "code": 0,
+      "pattern": "ترتیبی از اول",
+      "count": 495,
+      "median": 260000000,
+      "ordinary_median": 148250000,
+      "premium": 1.75
+    },
+    {
+      "code": 6,
+      "pattern": "سه پله",
+      "count": 68,
+      "median": 278040272,
+      "ordinary_median": 159000000,
+      "premium": 1.75
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+[Unit]
+Description=Refresh the 0912 listing database once a day
+
+[Timer]
+OnCalendar=*-*-* 03:30:00 Asia/Tehran
+Persistent=true
+Unit=simprice-refresh.service
+
+[Install]
+WantedBy=timers.target
